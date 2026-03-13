@@ -1,9 +1,9 @@
 {
-  "name": "@monorepo-template/functions",
+  "name": "@instagram-commenter/functions",
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
-    "@monorepo-template/core": "*",
+    "@instagram-commenter/core": "*",
     "sst": "*"
   },
   "devDependencies": {
