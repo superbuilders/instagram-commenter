@@ -17,4 +17,3 @@ node_modules
 # misc
 .DS_Store
 data/apify-raw/
-.env*
