@@ -3,7 +3,13 @@ import pg from "pg";
 import * as schema from "./schema.js";
 
 export function createDb(connectionString: string) {
-  const pool = new pg.Pool({ connectionString, max: 1 });
+  const pool = new pg.Pool({
+    connectionString,
+    max: 1,
+    ssl: connectionString.includes("localhost")
+      ? false
+      : { rejectUnauthorized: false },
+  });
   return drizzle(pool, { schema });
 }
 

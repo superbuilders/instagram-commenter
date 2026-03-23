@@ -21,19 +21,25 @@ const dbSg = new aws.ec2.SecurityGroup("DbSg", {
 });
 
 const dbSubnetGroup = new aws.rds.SubnetGroup("DbSubnetGroup", {
+  name: "instagram-commenter-db-subnet-group",
   subnetIds: vpc.privateSubnets,
 });
 
+const dbPassword = new sst.Secret("DatabasePassword");
+
 export const db = new aws.rds.Instance("Database", {
+  identifier: "ig-commenter-dev",
   engine: "postgres",
   engineVersion: "16.4",
   instanceClass: "db.t4g.micro",
   allocatedStorage: 20,
   dbName: "instagram_commenter",
   username: "app",
-  manageMasterUserPassword: true,
+  password: dbPassword.value,
   dbSubnetGroupName: dbSubnetGroup.name,
   vpcSecurityGroupIds: [dbSg.id],
   skipFinalSnapshot: true,
   publiclyAccessible: false,
 });
+
+export { dbPassword };
