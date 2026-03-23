@@ -121,12 +121,66 @@ async function seedReplyPairs() {
   console.log(`  → ${count} total reply pairs ingested`);
 }
 
+async function seedPodcasts() {
+  const podcastDir = path.resolve(dataDir, "../podcasts");
+  const manifestPath = path.join(podcastDir, "manifest.json");
+
+  if (!fs.existsSync(manifestPath)) {
+    console.log("Skipping podcasts — no manifest found.");
+    return;
+  }
+
+  console.log("\n--- Ingesting podcast transcripts ---");
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as {
+    episodes: Array<{
+      title: string;
+      url: string;
+      status: string;
+      skip?: boolean;
+      contentType?: string;
+      transcriptPath?: string | null;
+    }>;
+  };
+
+  const transcribed = manifest.episodes.filter(
+    (e) => e.status === "transcribed" && e.transcriptPath && !e.skip
+  );
+
+  console.log(`  Found ${transcribed.length} transcribed episodes`);
+
+  const sources = transcribed
+    .map((ep) => {
+      if (!ep.transcriptPath || !fs.existsSync(ep.transcriptPath)) return null;
+      const content = fs.readFileSync(ep.transcriptPath, "utf-8");
+      if (content.length < 100) return null;
+
+      const isNegative = ep.contentType === "negative_coverage";
+      return {
+        sourceType: "podcast" as const,
+        brainliftType: isNegative
+          ? ("counter_arguments" as const)
+          : ("voice_tone" as const),
+        title: ep.title,
+        content,
+        sourceWeight: isNegative ? 0.8 : 1.5,
+        sourceUrl: ep.url,
+        metadata: { contentType: ep.contentType },
+      };
+    })
+    .filter(Boolean) as Array<import("@instagram-commenter/core/knowledge").ContentSource>;
+
+  console.log(`  ${sources.length} episodes to ingest`);
+  const result = await ingestContent(sources, opts);
+  console.log(`  → ${result.chunks} chunks embedded`);
+}
+
 async function main() {
   console.log("=== Knowledge Bank Seed ===");
 
   await seedBrainlifts();
   await seedCaptions();
   await seedReplyPairs();
+  await seedPodcasts();
 
   console.log("\n=== Seed complete ===");
   process.exit(0);

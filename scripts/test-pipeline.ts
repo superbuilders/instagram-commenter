@@ -1,20 +1,14 @@
 import { classifyComment } from "@instagram-commenter/core/ai";
 import { generateReply } from "@instagram-commenter/core/ai";
-import { retrieveForComment } from "@instagram-commenter/core/knowledge";
-import { createDb } from "@instagram-commenter/core/db";
 
-const DATABASE_URL = process.env.DATABASE_URL;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-if (!DATABASE_URL || !ANTHROPIC_API_KEY || !OPENAI_API_KEY) {
-  console.error(
-    "DATABASE_URL, ANTHROPIC_API_KEY, and OPENAI_API_KEY are required."
-  );
+if (!ANTHROPIC_API_KEY) {
+  console.error("ANTHROPIC_API_KEY is required.");
   process.exit(1);
 }
 
-const db = createDb(DATABASE_URL);
+const HAS_DB = !!process.env.DATABASE_URL;
 
 const TEST_COMMENTS = [
   // Narrative shaping
@@ -124,29 +118,9 @@ async function runTest(
     classification.classification === "community_building" ||
     classification.classification === "informational"
   ) {
-    console.log("\n  [2] RETRIEVING KNOWLEDGE...");
-    const retrieval = await retrieveForComment(
-      comment.text,
-      classification.classification,
-      classification.narrative_topic ?? null,
-      { db, openaiApiKey: OPENAI_API_KEY! }
-    );
-
-    console.log(
-      `  → ${retrieval.knowledge.length} knowledge results, ${retrieval.examples.length} examples`
-    );
-    console.log(
-      `  → Has relevant knowledge: ${retrieval.hasRelevantKnowledge}`
-    );
-
-    if (
-      !retrieval.hasRelevantKnowledge &&
-      classification.classification === "narrative_shaping"
-    ) {
-      console.log(
-        "\n  [3] SKIPPED — No relevant knowledge for narrative shaping (guardrail working)"
-      );
-      return;
+    // Skip retrieval if no DB — generate with voice rules only
+    if (!HAS_DB) {
+      console.log("\n  [2] RETRIEVAL SKIPPED (no DB) — generating with voice rules only");
     }
 
     console.log("\n  [3] GENERATING REPLY...");
@@ -157,8 +131,8 @@ async function runTest(
         classificationGroup: classification.classification,
         narrativeTopic: classification.narrative_topic,
         infoType: classification.info_type,
-        knowledge: retrieval.knowledge,
-        examples: retrieval.examples,
+        knowledge: [],
+        examples: [],
       },
       ANTHROPIC_API_KEY!
     );
