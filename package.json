@@ -1,12 +1,18 @@
 {
   "name": "instagram-commenter",
+  "private": true,
   "version": "0.0.0",
   "workspaces": [
     "packages/*"
   ],
-  "scripts": {},
+  "scripts": {
+    "migrate": "sst shell -- tsx scripts/migrate.ts"
+  },
   "devDependencies": {
     "@tsconfig/node22": "^22",
+    "@types/pg": "^8",
+    "drizzle-kit": "^0.30",
+    "tsx": "^4",
     "typescript": "^5"
   },
   "dependencies": {
