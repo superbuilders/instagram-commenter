@@ -52,21 +52,29 @@ const spamPatterns =
 
 function categorize(
   c: RawComment
-): "narrative" | "info" | "community" | "delete" | "skip" | "mixed" {
+):
+  | "narrative_shaping"
+  | "informational"
+  | "community_building"
+  | "delete"
+  | "skip"
+  | "mixed" {
   if (spamPatterns.test(c.text)) return "delete";
   if (trollPatterns.test(c.text) && c.likesCount < 3) return "delete";
-  if (narrativePatterns.test(c.text)) return "narrative";
-  if (infoPatterns.test(c.text)) return "info";
-  if (communityPatterns.test(c.text) && c.text.length < 200) return "community";
+  if (narrativePatterns.test(c.text)) return "narrative_shaping";
+  if (infoPatterns.test(c.text)) return "informational";
+  if (communityPatterns.test(c.text) && c.text.length < 200) {
+    return "community_building";
+  }
   if (c.text.length < 5) return "skip";
   return "mixed";
 }
 
 // Sample across categories
 const buckets: Record<string, RawComment[]> = {
-  narrative: [],
-  info: [],
-  community: [],
+  narrative_shaping: [],
+  informational: [],
+  community_building: [],
   delete: [],
   skip: [],
   mixed: [],
@@ -90,9 +98,9 @@ function sample<T>(arr: T[], n: number): T[] {
 }
 
 const sampled: RawComment[] = [
-  ...sample(buckets.narrative, 25),
-  ...sample(buckets.community, 20),
-  ...sample(buckets.info, 15),
+  ...sample(buckets.narrative_shaping, 25),
+  ...sample(buckets.community_building, 20),
+  ...sample(buckets.informational, 15),
   ...sample(buckets.delete, 15),
   ...sample(buckets.skip, 10),
   ...sample(buckets.mixed, 15),
