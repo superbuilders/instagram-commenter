@@ -3,6 +3,22 @@ import type { Database } from "../db/index.js";
 import { knowledgeSources, brainliftSources } from "../db/schema.js";
 import { embedBatch, chunkText } from "../ai/embeddings.js";
 
+const PODCAST_AD_PATTERNS = [
+  /\bword from our sponsors?\b/i,
+  /\bthis episode is brought to you by\b/i,
+  /\boracle cloud infrastructure\b/i,
+  /\bnetsuite by oracle\b/i,
+  /\bbuild the future of multi-agent software with agency\b/i,
+  /\ba-g-n-t-c-y\b/i,
+  /\bpreserve gold\b/i,
+  /\btext dr\.?\s*phil to 50505\b/i,
+  /\boracle\.com slash cognitive\b/i,
+  /\bnetsuite\.com slash cognitive\b/i,
+  /\bagency\.org\b/i,
+  /\bfree gold and silver\b/i,
+] as const;
+const PODCAST_AD_CONTEXT_RADIUS = 2;
+
 export interface IngestOptions {
   db: Database;
   openaiApiKey: string;
@@ -39,6 +55,33 @@ export interface BrainliftContent extends ContentSource {
   contentHash: string;
 }
 
+function stripPodcastAds(content: string): string {
+  const sentences = content.match(/[^.!?]+[.!?]?/g);
+  if (!sentences || sentences.length === 0) return content;
+
+  const adSentenceIndexes = new Set<number>();
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    const isAdSentence = PODCAST_AD_PATTERNS.some((pattern) =>
+      pattern.test(sentence)
+    );
+    if (!isAdSentence) continue;
+
+    const start = Math.max(0, i - PODCAST_AD_CONTEXT_RADIUS);
+    const end = Math.min(sentences.length - 1, i + PODCAST_AD_CONTEXT_RADIUS);
+    for (let j = start; j <= end; j++) adSentenceIndexes.add(j);
+  }
+
+  if (adSentenceIndexes.size === 0) return content;
+
+  const filtered = sentences
+    .filter((_, idx) => !adSentenceIndexes.has(idx))
+    .join("")
+    .replace(/\n{3,}/g, "\n\n");
+
+  return filtered.trim().length > 0 ? filtered : content;
+}
+
 export async function ingestContent(
   sources: ContentSource[],
   opts: IngestOptions
@@ -46,7 +89,11 @@ export async function ingestContent(
   let totalChunks = 0;
 
   for (const source of sources) {
-    const chunks = chunkText(source.content);
+    const content =
+      source.sourceType === "podcast"
+        ? stripPodcastAds(source.content)
+        : source.content;
+    const chunks = chunkText(content);
     if (chunks.length === 0) continue;
 
     const embedded = await embedBatch(chunks, opts.openaiApiKey);
