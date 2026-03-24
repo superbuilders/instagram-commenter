@@ -148,10 +148,24 @@ async function seedPodcasts() {
 
   console.log(`  Found ${transcribed.length} transcribed episodes`);
 
+  const resolveTranscriptPath = (transcriptPath: string) => {
+    if (!path.isAbsolute(transcriptPath)) {
+      return path.resolve(podcastDir, transcriptPath);
+    }
+
+    if (fs.existsSync(transcriptPath)) {
+      return transcriptPath;
+    }
+
+    return path.resolve(podcastDir, path.basename(transcriptPath));
+  };
+
   const sources = transcribed
     .map((ep) => {
-      if (!ep.transcriptPath || !fs.existsSync(ep.transcriptPath)) return null;
-      const content = fs.readFileSync(ep.transcriptPath, "utf-8");
+      if (!ep.transcriptPath) return null;
+      const transcriptPath = resolveTranscriptPath(ep.transcriptPath);
+      if (!fs.existsSync(transcriptPath)) return null;
+      const content = fs.readFileSync(transcriptPath, "utf-8");
       if (content.length < 100) return null;
 
       const isNegative = ep.contentType === "negative_coverage";
