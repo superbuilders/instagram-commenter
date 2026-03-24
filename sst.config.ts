@@ -20,6 +20,8 @@ export default $config({
     const { dbPassword } = await import("./infra/database");
     const { vpc } = await import("./infra/vpc");
 
+    const { openaiKey } = await import("./infra/secrets");
+
     const migrator = new sst.aws.Function("Migrator", {
       url: true,
       handler: "packages/functions/src/run-migrate.handler",
@@ -37,11 +39,31 @@ export default $config({
       ],
     });
 
+    const seeder = new sst.aws.Function("Seeder", {
+      url: true,
+      handler: "packages/functions/src/run-seed.handler",
+      timeout: "900 seconds",
+      memory: "1024 MB",
+      vpc,
+      link: [dbPassword, openaiKey],
+      environment: {
+        DATABASE_HOST: db.address,
+        DATABASE_PORT: db.port.apply((p) => String(p)),
+        DATABASE_NAME: "instagram_commenter",
+        DATABASE_USERNAME: "app",
+      },
+      copyFiles: [
+        { from: "data/podcasts", to: "data/podcasts" },
+        { from: "data/voice-samples", to: "data/voice-samples" },
+      ],
+    });
+
     return {
       MyBucket: storage.bucket.name,
       DatabaseEndpoint: db.endpoint,
       SlackHandlerUrl: slackHandler.url,
       MigratorUrl: migrator.url,
+      SeederUrl: seeder.url,
     };
   },
 });
