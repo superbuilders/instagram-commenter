@@ -51,6 +51,9 @@ export async function handler(event: { body?: string } = {}) {
     // 3. Seed reply pairs
     results.push(await seedReplyPairs(opts));
 
+    // 4. Seed Substack
+    results.push(await seedSubstack(opts));
+
     return {
       statusCode: 200,
       body: results.join("\n"),
@@ -179,4 +182,82 @@ async function seedReplyPairs(opts: { db: any; openaiApiKey: string }): Promise<
   }
 
   return `Reply pairs: ${count} pairs ingested`;
+}
+
+async function seedSubstack(opts: { db: any; openaiApiKey: string }): Promise<string> {
+  const rssUrl = "https://futureofeducation.substack.com/feed";
+
+  console.log("Fetching Substack RSS...");
+  const response = await fetch(rssUrl);
+  if (!response.ok) {
+    return `Substack: failed (HTTP ${response.status})`;
+  }
+
+  const xml = await response.text();
+
+  // Parse RSS items
+  const items: Array<{ title: string; link: string; content: string }> = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const itemXml = match[1];
+    const title =
+      itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] ??
+      itemXml.match(/<title>(.*?)<\/title>/)?.[1] ??
+      "";
+    const link = itemXml.match(/<link>(.*?)<\/link>/)?.[1] ?? "";
+    const content =
+      itemXml.match(
+        /<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/
+      )?.[1] ?? "";
+
+    if (title && content) {
+      items.push({ title, link, content: stripHtml(content) });
+    }
+  }
+
+  console.log(`Found ${items.length} Substack posts`);
+
+  if (items.length === 0) {
+    return "Substack: 0 posts found";
+  }
+
+  const sources: ContentSource[] = items
+    .filter((item) => item.content.length > 100)
+    .map((item) => ({
+      sourceType: "substack" as const,
+      brainliftType: "institutional" as const,
+      title: item.title,
+      content: item.content,
+      sourceWeight: 1.2,
+      sourceUrl: item.link,
+    }));
+
+  let ingested = 0;
+  for (const source of sources) {
+    try {
+      await ingestContent([source], opts);
+      ingested++;
+      console.log(`  Ingested: ${source.title}`);
+    } catch (err: any) {
+      console.warn(`  Skipped: ${source.title} — ${err.message}`);
+    }
+  }
+
+  return `Substack: ${ingested} posts ingested`;
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
 }
