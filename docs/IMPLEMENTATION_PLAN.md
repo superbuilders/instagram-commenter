@@ -315,7 +315,7 @@ This means the team controls what the bot knows and can say. When new narratives
 - `scripts/seed-knowledge.ts` — Seeds BrainLifts from WorkFlowy + IG captions + 182 reply pairs
 - Run: `npm run migrate && npx tsx scripts/seed-knowledge.ts`
 
-**Auto-ingest Lambda** (TODO — `packages/functions/src/auto-ingest.ts`):
+**Auto-ingest Lambda** ✅ DONE (`packages/functions/src/auto-ingest.ts`, deployed as hourly cron):
 - EventBridge cron: hourly
 - **WorkFlowy sync**: Check for BrainLift changes via API, re-embed updated sections
 - **IG captions**: Scan for new posts detected by ingest Lambda → embed + store
@@ -343,7 +343,7 @@ This means the team controls what the bot knows and can say. When new narratives
 | **Deletion Guidelines** | TBD (WorkFlowy node) | Jay | Patterns that trigger deletion (trolls, spam, bad-faith), examples of criticism that must stand, the decision tree Jay uses for his ~20 daily deletions. |
 | **Messaging Boundaries** | TBD (WorkFlowy node) | MacKenzie + Jay | Approved claims (CAN say), forbidden claims (NEVER say), topics requiring human escalation, tone rules per classification group. |
 
-**Step 1.6 — Build the eval dataset** ✅ DONE (structure created, needs human labeling)
+**Step 1.6 — Build the eval dataset** ✅ DONE (auto-labeled by classifier, sent to Jay for human verification)
 - `scripts/build-eval-dataset.ts` — Pulls diverse sample from 5,359 scraped comments
 - 110 comments sampled: ~25 narrative, ~20 community, ~15 informational, ~15 delete, ~10 skip, ~15 boundary, ~10 MacKenzie-replied
 - Output: `data/eval-dataset.json` — classification fields are null, needs human labeling
@@ -558,11 +558,21 @@ This means the team controls what the bot knows and can say. When new narratives
 - If yes, refresh via Graph API token exchange
 - Update accounts table with new token and expiry
 
-**Step 3.11 — Deploy to AWS via SST** (ready to deploy — run `npx sst dev`)
-```bash
-npx sst deploy --stage dev    # Dev environment first
-npx sst deploy --stage prod   # Production when ready
-```
+**Step 3.11 — Deploy to AWS via SST** ✅ DONE (dev stage deployed)
+- VPC + NAT instances running
+- RDS Postgres 16 (`ig-commenter-dev.cmt24wmmkgfr.us-east-1.rds.amazonaws.com`)
+- Database schema migrated, pgvector enabled
+- Knowledge bank seeded: 33 podcasts, 748 captions, 182 reply pairs, 20 Substack posts
+- All 8 cron Lambdas deployed and scheduled
+- Slack approval Function URL: active and connected to `#alpha-bot-test`
+- Seeder Lambda with dedup logic
+- Migrator Lambda for schema updates
+
+**Deployment URLs:**
+- API: `https://pfd45xob52h7flv5ivkhahamvm0fdntx.lambda-url.us-east-1.on.aws/`
+- Slack Handler: `https://oroytpfq4zjk7hke5xtyqvdrwa0qhzvt.lambda-url.us-east-1.on.aws/`
+- Seeder: `https://p7oev24ph5xiw6lkiqb3h64jgq0jcpsa.lambda-url.us-east-1.on.aws/`
+- Migrator: `https://cxgj3lt6suunurstsykcsizcay0pgniz.lambda-url.us-east-1.on.aws/`
 
 ---
 

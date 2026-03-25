@@ -1,3 +1,4 @@
+import { eq, sql } from "drizzle-orm";
 import { Resource } from "sst";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
@@ -7,7 +8,6 @@ import {
   ingestResponseExample,
   type ContentSource,
 } from "@instagram-commenter/core/knowledge";
-import { embedBatch, chunkText } from "@instagram-commenter/core/ai";
 
 function getDb() {
   const host = process.env.DATABASE_HOST;
@@ -22,6 +22,24 @@ function getDb() {
 
 function getOpenaiKey(): string {
   return (Resource as any).OpenaiApiKey.value;
+}
+
+async function isSourceUrlIngested(db: any, sourceUrl: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: schema.knowledgeSources.id })
+    .from(schema.knowledgeSources)
+    .where(eq(schema.knowledgeSources.sourceUrl, sourceUrl))
+    .limit(1);
+  return !!row;
+}
+
+async function isReplyPairIngested(db: any, commentText: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: schema.responseExamples.id })
+    .from(schema.responseExamples)
+    .where(eq(schema.responseExamples.commentText, commentText))
+    .limit(1);
+  return !!row;
 }
 
 export async function handler(event: { body?: string } = {}) {
@@ -85,12 +103,13 @@ async function seedPodcasts(opts: { db: any; openaiApiKey: string }): Promise<st
   );
 
   let ingested = 0;
+  let skippedDup = 0;
   for (const ep of transcribed) {
-    // The transcript path in manifest is absolute — adjust to Lambda path
     const filename = path.basename(ep.transcriptPath);
     const localPath = path.join(podcastDir, filename);
 
     if (!fs.existsSync(localPath)) continue;
+    if (ep.url && await isSourceUrlIngested(opts.db, ep.url)) { skippedDup++; continue; }
 
     const content = fs.readFileSync(localPath, "utf-8");
     if (content.length < 100) continue;
@@ -119,7 +138,7 @@ async function seedPodcasts(opts: { db: any; openaiApiKey: string }): Promise<st
     }
   }
 
-  return `Podcasts: ${ingested} episodes ingested`;
+  return `Podcasts: ${ingested} ingested, ${skippedDup} already existed`;
 }
 
 async function seedCaptions(opts: { db: any; openaiApiKey: string }): Promise<string> {
@@ -135,18 +154,24 @@ async function seedCaptions(opts: { db: any; openaiApiKey: string }): Promise<st
     url?: string;
   }>;
 
-  const sources: ContentSource[] = captions
-    .filter((c) => c.caption && c.caption.length > 20)
-    .map((c) => ({
+  const filtered = captions.filter((c) => c.caption && c.caption.length > 20);
+  const sources: ContentSource[] = [];
+  let skippedDup = 0;
+
+  for (const c of filtered) {
+    if (c.url && await isSourceUrlIngested(opts.db, c.url)) { skippedDup++; continue; }
+    sources.push({
       sourceType: "ig_caption" as const,
       title: c.caption.slice(0, 100),
       content: c.caption,
       sourceWeight: 1.0,
       sourceUrl: c.url,
-    }));
+    });
+  }
 
+  if (sources.length === 0) return `Captions: 0 new (${skippedDup} already existed)`;
   const result = await ingestContent(sources, opts);
-  return `Captions: ${result.ingested} captions, ${result.chunks} chunks`;
+  return `Captions: ${result.ingested} ingested, ${result.chunks} chunks, ${skippedDup} already existed`;
 }
 
 async function seedReplyPairs(opts: { db: any; openaiApiKey: string }): Promise<string> {
@@ -164,8 +189,10 @@ async function seedReplyPairs(opts: { db: any; openaiApiKey: string }): Promise<
   }>;
 
   let count = 0;
+  let skippedDup = 0;
   for (const pair of pairs) {
     if (!pair.parentComment?.text || !pair.mackenzieReply?.text) continue;
+    if (await isReplyPairIngested(opts.db, pair.parentComment.text)) { skippedDup++; continue; }
     try {
       await ingestResponseExample(
         pair.parentComment.text,
@@ -181,7 +208,7 @@ async function seedReplyPairs(opts: { db: any; openaiApiKey: string }): Promise<
     }
   }
 
-  return `Reply pairs: ${count} pairs ingested`;
+  return `Reply pairs: ${count} ingested, ${skippedDup} already existed`;
 }
 
 async function seedSubstack(opts: { db: any; openaiApiKey: string }): Promise<string> {
@@ -222,29 +249,31 @@ async function seedSubstack(opts: { db: any; openaiApiKey: string }): Promise<st
     return "Substack: 0 posts found";
   }
 
-  const sources: ContentSource[] = items
-    .filter((item) => item.content.length > 100)
-    .map((item) => ({
-      sourceType: "substack" as const,
-      brainliftType: "institutional" as const,
-      title: item.title,
-      content: item.content,
-      sourceWeight: 1.2,
-      sourceUrl: item.link,
-    }));
-
   let ingested = 0;
-  for (const source of sources) {
+  let skippedDup = 0;
+  for (const item of items) {
+    if (item.content.length < 100) continue;
+    if (await isSourceUrlIngested(opts.db, item.link)) { skippedDup++; continue; }
     try {
-      await ingestContent([source], opts);
+      await ingestContent(
+        [{
+          sourceType: "substack" as const,
+          brainliftType: "institutional" as const,
+          title: item.title,
+          content: item.content,
+          sourceWeight: 1.2,
+          sourceUrl: item.link,
+        }],
+        opts
+      );
       ingested++;
-      console.log(`  Ingested: ${source.title}`);
+      console.log(`  Ingested: ${item.title}`);
     } catch (err: any) {
-      console.warn(`  Skipped: ${source.title} — ${err.message}`);
+      console.warn(`  Skipped: ${item.title} — ${err.message}`);
     }
   }
 
-  return `Substack: ${ingested} posts ingested`;
+  return `Substack: ${ingested} ingested, ${skippedDup} already existed`;
 }
 
 function stripHtml(html: string): string {
