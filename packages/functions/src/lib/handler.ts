@@ -39,12 +39,13 @@ type HttpHandler = (
 ) => Promise<{ statusCode: number; body: string }>;
 
 export function createHttpHandler(name: string, fn: HttpHandler) {
-  return async (event: { body?: string; headers?: Record<string, string> }) => {
+  return async (event: { body?: string; isBase64Encoded?: boolean; headers?: Record<string, string> }) => {
     log("info", `${name} received request`);
 
     try {
       const db = await getDb();
-      const body = event.body ?? "";
+      const raw = event.body ?? "";
+      const body = event.isBase64Encoded ? Buffer.from(raw, "base64").toString("utf-8") : raw;
       const headers = event.headers ?? {};
       return await fn(db, body, headers);
     } catch (err) {
