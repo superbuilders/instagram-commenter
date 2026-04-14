@@ -9,6 +9,12 @@ import { createCronHandler, log } from "./lib/handler.js";
 import { getSlackBotToken, getSlackChannelId } from "./lib/secrets.js";
 
 export const handler = createCronHandler("delete-comments", async (db) => {
+  const deletionEnabled = process.env.DELETION_ENABLED?.trim().toLowerCase() === "true";
+  if (!deletionEnabled) {
+    log("info", "Comment deletion is disabled via DELETION_ENABLED");
+    return;
+  }
+
   const slackToken = getSlackBotToken();
   const channelId = getSlackChannelId();
 

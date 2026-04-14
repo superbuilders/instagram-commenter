@@ -52,7 +52,14 @@ export const postReplies = new sst.aws.Cron("PostReplies", {
 
 export const deleteComments = new sst.aws.Cron("DeleteComments", {
   schedule: "rate(15 minutes)",
-  function: cronFn("packages/functions/src/delete-comments.handler", "60 seconds", [slackBotToken, slackChannelId]),
+  function: cronFn(
+    "packages/functions/src/delete-comments.handler",
+    "60 seconds",
+    [slackBotToken, slackChannelId],
+    {
+      DELETION_ENABLED: process.env.DELETION_ENABLED ?? "false",
+    }
+  ),
 });
 
 export const slackDigest = new sst.aws.Cron("SlackDigest", {

@@ -330,7 +330,7 @@
     "likesCount": 0,
     "postCaption": "A typical day at our school is \n-Morning Launch (motivation and inspiration to tackle the day)\n-2 hour learning. Math science language powered by AI apps (no teachers instructing) adult Guides motivat",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "community_building"
@@ -378,7 +378,7 @@
     "likesCount": 3,
     "postCaption": "If only I would have known how big this mission would become… I only wish I’d started sooner! \n\nWhen I was a young mom, I knew my daughter couldn’t stay in traditional school. I also knew I didn’t wan",
     "classification": "community_building",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": null,
     "ideal_response": null,
     "notes": "community_building"
@@ -402,7 +402,7 @@
     "likesCount": 0,
     "postCaption": "The schedule-\n\n⛅️Morning Launch: 15 minutes of motivation, brain-teasers, setting goals, light exercise, and puzzles to get us going for the day.\n\n📚2 Hour Learning Block: This is our super-focus spri",
     "classification": "community_building",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": null,
     "ideal_response": null,
     "notes": "community_building"
@@ -474,7 +474,7 @@
     "likesCount": 0,
     "postCaption": "The research shows: the average grade-level subject (say, fourth-grade math) need only take about 20 to 30 hours to master. That’s it. \n\nTraditional schools run for 180 days, one hour a day per subjec",
     "classification": "community_building",
-    "narrative_topic": "traditional_school",
+    "narrative_topic": null,
     "info_type": null,
     "ideal_response": null,
     "notes": "community_building"
@@ -486,7 +486,7 @@
     "likesCount": 2,
     "postCaption": "AI is the answer to the education disaster because it’s the first scalable, affordable 1:1 tutor available to all. There have to be guardrails, of course. I’m not suggesting anyone use ChatGPT as an e",
     "classification": "community_building",
-    "narrative_topic": "ai_education",
+    "narrative_topic": null,
     "info_type": null,
     "ideal_response": null,
     "notes": "community_building"
@@ -498,7 +498,7 @@
     "likesCount": 1,
     "postCaption": "We are redefining the role of a teacher in real time. First and foremost we pay our “Guides” excellently. We recognize that even with the leading technology, our humans are what is revolutionizing edu",
     "classification": "community_building",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": null,
     "ideal_response": null,
     "notes": "community_building"
@@ -522,7 +522,7 @@
     "likesCount": 0,
     "postCaption": "No teachers, no homework, no problem. 😉",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "community_building"
@@ -546,7 +546,7 @@
     "likesCount": 0,
     "postCaption": "I run a network of schools that are among the most innovative and successful academically in the nation. Our schools don’t even have teachers, we use AI apps for academics. But I still recognize the c",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational"
@@ -558,7 +558,7 @@
     "likesCount": 1,
     "postCaption": "When my 2nd grader came home and said “school is boring”, I knew I had to do something. The traditional model of school doesn’t work anymore, well it may work for some - students like me who played th",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "complex_redirect",
     "ideal_response": null,
     "notes": "informational (MacKenzie replied)"
@@ -570,7 +570,7 @@
     "likesCount": 0,
     "postCaption": "This is not anti-teachers it’s anti- system. The education system is completely broken, the model is outdated and needs a complete overhaul.",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "cost",
     "ideal_response": null,
     "notes": "informational"
@@ -582,7 +582,7 @@
     "likesCount": 0,
     "postCaption": "Yes she’s 15, and yes she developed this herself. At a school that’s forward thinking and sets up students to succeed in the real world, this is the norm. The app already has 10k users in the beta sta",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational"
@@ -594,7 +594,7 @@
     "likesCount": 0,
     "postCaption": "There are many specific ways to upgrade our education system-but we’ve narrowed it down to 3 fundamental changes. \n\n1. Kids should LOVE SCHOOL. Why should we accept the status quo that school should b",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational"
@@ -606,7 +606,7 @@
     "likesCount": 0,
     "postCaption": "ADHD diagnoses have skyrocketed in recent years - especially in young boys. But why do we expect rambunctious and energetic young boys to sit still in a chair for 7 hours in the first place?\n🧐\nThe cu",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational"
@@ -618,7 +618,7 @@
     "likesCount": 0,
     "postCaption": "5 ways traditional school fails-\n#1- one size fits all approach. Students learn differently, and the same class of 25 third graders has wildly different levels of students, some are behind some are ah",
     "classification": "community_building",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "informational"
@@ -642,7 +642,7 @@
     "likesCount": 0,
     "postCaption": "If we don’t figure this out,  consequences will be dire.",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "cost",
     "ideal_response": null,
     "notes": "informational"
@@ -654,7 +654,7 @@
     "likesCount": 0,
     "postCaption": "Let’s be honest - most kids hate school. Learning isn’t boring, but they think school is. And you wanna know why students in traditional schools aren’t learning? Because they don’t see the point. They",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "cost",
     "ideal_response": null,
     "notes": "informational"
@@ -666,7 +666,7 @@
     "likesCount": 0,
     "postCaption": "You can make a difference!! Go to meetings! Make your voice heard! Find other like minds! The only way changes are made is when enough people demand it! For our kids’ future, we have to! The education",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "cost",
     "ideal_response": null,
     "notes": "informational"
@@ -678,7 +678,7 @@
     "likesCount": 0,
     "postCaption": "High school should be spent learning LIFE SKILLS, not memorizing useless facts. 🤷🏼‍♀️\n.\nAt the school I co-founded, our high schoolers spend 2 hours a day on traditional academic learning.🧮\n.\nThe r",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational"
@@ -702,7 +702,7 @@
     "likesCount": 0,
     "postCaption": "Letter grades and report cards are pretty much meaningless at most schools. \n\nWe have students transfer from all kinds of schools into ours-public, elite private, charters, magnets, you name it. \n\nAnd",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational"
@@ -714,7 +714,7 @@
     "likesCount": 0,
     "postCaption": "Why did we put these kids in a tent in the middle of the classroom? \n\nIt all traces back to motivation models. What drives students to succeed? We’ve found that rewarding effort yields powerful result",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational"
@@ -726,7 +726,7 @@
     "likesCount": 0,
     "postCaption": "Why is this controversial? \n\nOur Guides (teachers) are held accountable for their job performance just like any other industry. They are also rewarded just like any other industry. \n\nThis approach is ",
     "classification": "delete",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "delete"
@@ -762,7 +762,7 @@
     "likesCount": 0,
     "postCaption": "Our high schoolers are busy working on things that actually interest them…\n.\n…AND scoring 5s on AP test, getting perfect SAT scores, + landing in the top 2-3% in national standardized MAP testing. \n.\n",
     "classification": "delete",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": null,
     "ideal_response": null,
     "notes": "delete"
@@ -774,7 +774,7 @@
     "likesCount": 0,
     "postCaption": "Thoughts?",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "complex_redirect",
     "ideal_response": null,
     "notes": "delete"
@@ -798,7 +798,7 @@
     "likesCount": 0,
     "postCaption": "A fun trend that shows how well our adult “Guides” connect with their students! Shoutout to all the Guides/Coaches/Teachers that are making a difference every day in our students!!",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "delete"
@@ -822,7 +822,7 @@
     "likesCount": 0,
     "postCaption": "Transparency is completely missing from todays education system.",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "complex_redirect",
     "ideal_response": null,
     "notes": "delete (MacKenzie replied)"
@@ -870,7 +870,7 @@
     "likesCount": 0,
     "postCaption": "School will never be the same again, and that’s a good thing. 😎",
     "classification": "informational",
-    "narrative_topic": "traditional_school",
+    "narrative_topic": null,
     "info_type": "complex_redirect",
     "ideal_response": null,
     "notes": "delete"
@@ -1026,7 +1026,7 @@
     "likesCount": 1,
     "postCaption": "Guides are Teachers 2.0. It’s why thousands of teachers are flocking to apply to our model. Because they are frustrated with a traditional system that doesn’t allow them the time or the autonomy to do",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "mixed"
@@ -1038,7 +1038,7 @@
     "likesCount": 1,
     "postCaption": "“School projects” are actually legitimate business ventures that students can (and have in past graduating classes) snowball into real world occupations.\n\nOur goal is to equip kids for real life. How ",
     "classification": "community_building",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "mixed"
@@ -1062,7 +1062,7 @@
     "likesCount": 5,
     "postCaption": "Homeschooling is exploding in growth and popularity, and there are many reasons why. A broken education system, technology advancements, a desire for parents to have more quality time with their child",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "mixed"
@@ -1074,7 +1074,7 @@
     "likesCount": 0,
     "postCaption": "Do you agree?",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "mixed"
@@ -1134,7 +1134,7 @@
     "likesCount": 2,
     "postCaption": "This has been a long time coming.",
     "classification": "skip",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "complex_redirect",
     "ideal_response": null,
     "notes": "mixed"
@@ -1182,7 +1182,7 @@
     "likesCount": 1,
     "postCaption": "Be honest. Are you uncomfortable with letting your kid fail? We see it more and more these days- parents interfering with normal childhood disappointments and failures. \n\nFormer WBNA player and UCLA H",
     "classification": "community_building",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "mixed"
@@ -1218,7 +1218,7 @@
     "likesCount": 0,
     "postCaption": "Life skills! Life skills! Life skills!! The differences between our school and traditional school are vast, but one area is our focus on life skills. We teach our students all kinds of life skills, fr",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "mixed (MacKenzie replied)"
@@ -1230,7 +1230,7 @@
     "likesCount": 1,
     "postCaption": "What do you think? \n.\n#teacher #teacherlife #teachergram #teachertribe #teacherproblems #teachersofinstagram #teachershare #teacherblogger #watchmeteach #teacherlife🍎 #teacherinspiration #teacheridea",
     "classification": "community_building",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "general",
     "ideal_response": null,
     "notes": "mixed (MacKenzie replied)"
@@ -1242,7 +1242,7 @@
     "likesCount": 1,
     "postCaption": "What are your thoughts on why both sides of this issue are so passionate? #schoolchoice #educationreform #saveourschools #educationmatters",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "complex_redirect",
     "ideal_response": null,
     "notes": "mixed (MacKenzie replied)"
@@ -1254,7 +1254,7 @@
     "likesCount": 3,
     "postCaption": "There is so much misunderstanding about what AI actually does in our classrooms. It’s not chatbots, we call them “cheatbots.” It’s also not an open-loop free access setup where students type in “teach",
     "classification": "informational",
-    "narrative_topic": "ai_education",
+    "narrative_topic": null,
     "info_type": "program",
     "ideal_response": null,
     "notes": "mixed (MacKenzie replied)"
@@ -1314,7 +1314,7 @@
     "likesCount": 0,
     "postCaption": "The biggest misconception about our schools is that we admit based on testing. We admit based on how teachable a student is. Yes our students test top 1-2% in the nation but many students (most even) ",
     "classification": "informational",
-    "narrative_topic": "other",
+    "narrative_topic": null,
     "info_type": "location",
     "ideal_response": null,
     "notes": "informational (MacKenzie replied)"
