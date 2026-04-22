@@ -139,6 +139,8 @@ Comment arrives → Bot classifies + generates reply → Sent to Slack
        ↓
 Over time: bot gets better, approval rate increases, team trusts it more
 
+**Future task — turn rejection notes into classifier/routing improvements:** Slack rejections now capture both the selected reason and the free-text reviewer note. Use those notes as an explicit feedback dataset to compare the original comment, classifier output, generated reply, selected rejection reason, and reviewer explanation. The goal is to identify cases that should have been classified as `skip` / "do not reply" before allocation, update classifier prompts/evals with those examples, and eventually add a lightweight review report showing recurring rejection patterns.
+
 HOW RELEVANCY WORKS:
 When a new comment arrives, its text is embedded as a vector. The system
 searches the knowledge bank by cosine similarity — finding the closest
