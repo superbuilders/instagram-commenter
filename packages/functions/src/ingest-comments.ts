@@ -1,9 +1,10 @@
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   accounts,
   posts,
   comments,
 } from "@instagram-commenter/core/db";
+import { recordPipelineEvent } from "@instagram-commenter/core/pipeline";
 import {
   getRecentMedia,
   getComments,
@@ -61,8 +62,12 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
 
       let newCount = 0;
       for (const comment of igComments) {
-        // Skip account owner's comments
+        const commentedAt = new Date(comment.timestamp);
+        if (commentedAt < account.createdAt) continue;
+
+        // Skip account owner's comments or comments with no text
         if (comment.username === account.username) continue;
+        if (!comment.text) continue;
 
         // Dedupe
         const existing = await db
@@ -72,21 +77,36 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
 
         if (existing.length > 0) continue;
 
-        await db.insert(comments).values({
+        const [insertedComment] = await db.insert(comments).values({
           postId,
           platformCommentId: comment.id,
           authorUsername: comment.username,
           text: comment.text,
           likesCount: comment.like_count,
           isFromAccountOwner: false,
-          commentedAt: new Date(comment.timestamp),
-        });
+          commentedAt,
+        }).returning({ id: comments.id });
         newCount++;
+
+        await recordPipelineEvent(db, {
+          commentId: insertedComment.id,
+          stage: "ingest",
+          status: "succeeded",
+          reasonCode: "ingested_comment",
+          payload: { isTopLevel: true, postId },
+        });
 
         // Also ingest replies to this comment
         if (comment.replies?.data) {
+          // Look up internal UUID for parent comment
+          const parentUuid = insertedComment.id;
+
           for (const reply of comment.replies.data) {
+            const repliedAt = new Date(reply.timestamp);
+            if (repliedAt < account.createdAt) continue;
+
             if (reply.username === account.username) continue;
+            if (!reply.text) continue;
 
             const existingReply = await db
               .select({ id: comments.id })
@@ -95,17 +115,25 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
 
             if (existingReply.length > 0) continue;
 
-            await db.insert(comments).values({
+            const [insertedReply] = await db.insert(comments).values({
               postId,
               platformCommentId: reply.id,
-              parentCommentId: comment.id,
+              parentCommentId: parentUuid,
               authorUsername: reply.username,
               text: reply.text,
               likesCount: reply.like_count,
               isFromAccountOwner: false,
-              commentedAt: new Date(reply.timestamp),
-            });
+              commentedAt: repliedAt,
+            }).returning({ id: comments.id });
             newCount++;
+
+            await recordPipelineEvent(db, {
+              commentId: insertedReply.id,
+              stage: "ingest",
+              status: "succeeded",
+              reasonCode: "ingested_reply",
+              payload: { isTopLevel: false, parentCommentId: parentUuid, postId },
+            });
           }
         }
       }

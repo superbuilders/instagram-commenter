@@ -1,4 +1,18 @@
 import type { SearchResult, ExampleResult } from "../knowledge/search.js";
+import {
+  GENERATOR_MODEL,
+  GENERATOR_PROMPT_VERSION,
+} from "../pipeline/index.js";
+
+function getSourceTier(sourceType: string, brainliftType: string | null): string {
+  if (sourceType === "brainlift" || sourceType === "website" || sourceType === "substack") {
+    return "🔒 VERIFIED";
+  }
+  if (sourceType === "ig_caption" || sourceType === "podcast") {
+    return "🎙 REFERENCE";
+  }
+  return "📝 VOICE";
+}
 
 export interface GeneratorInput {
   commentText: string;
@@ -31,10 +45,12 @@ PERSONALITY:
 - Frequently directs people to bio link for more info: "link in my bio"
 - Uses "bring Alpha to [city]" framing for expansion questions
 
-EMOJI PATTERNS (use sparingly, not every reply):
-- Most used: 👍 🙌 🙏 😀 🫶 😁
-- Occasionally: 😂 👏 😉 💯 💪
-- Never overdo it — 1-2 emojis max per reply, often none
+EMOJI PATTERNS:
+- Many replies have NO emoji at all — this is fine and often preferred
+- When using emoji, VARY them. Never use the same emoji in consecutive replies.
+- Options: 👍 🙌 🙏 😀 🫶 😁 😂 👏 😉 💯 💪
+- Max 1-2 per reply, but default to NONE unless the emoji genuinely adds warmth
+- Do NOT default to 🙌 every time — rotate or skip emojis entirely
 
 TONE BY CONTEXT:
 - Community: lighthearted, grateful, encouraging. Short replies (under 100 chars often).
@@ -55,7 +71,14 @@ function buildSystemPrompt(mode: GeneratorInput["classificationGroup"]): string 
 Generate a short, warm reply in MacKenzie's voice. Under 150 characters.
 Types: encouragement, thank you, commiseration with parents, casual Q&A, celebration.
 Match the energy of the comment — if they're excited, be excited back.
-If it's a casual question, give a genuine answer or point them to bio/DMs.`,
+If it's a casual question, give a genuine answer or point them to bio/DMs.
+
+VARY YOUR STYLE. Don't always say "love this!" or "thank you!". Mix it up:
+- Sometimes just match their emoji energy (🙌🙌 or 👏💯)
+- Sometimes ask a follow-up question back
+- Sometimes share a brief personal reaction
+- For emoji-only comments (👏👏👏), a short emoji reply or brief warm acknowledgment is perfect — don't over-explain
+MacKenzie doesn't respond to every nice comment the same way.`,
 
     narrative_shaping: `MODE: Narrative Shaping
 Generate a substantive reply (up to 500 chars) that addresses the comment's narrative.
@@ -63,14 +86,18 @@ Be factual, empathetic but firm — never defensive.
 Use the retrieved knowledge to ground your response in real talking points.
 Cite specific programs, data, or experiences at Alpha when relevant.
 If the knowledge doesn't have enough info for this specific narrative, return {"skip": true, "reason": "insufficient knowledge for this narrative"}.
-NEVER improvise on sensitive topics without supporting knowledge.`,
+NEVER improvise on sensitive topics without supporting knowledge.
+
+CRITICAL: Address the SPECIFIC claim in the comment. If they mention screen time in Sweden, respond about Sweden. If they say AI ruins brains, address that specific fear. Don't give a generic defense of Alpha — respond to what THIS person actually said. Generic talking points feel robotic.`,
 
     informational: `MODE: Informational
 Generate a helpful, accurate reply (under 300 chars) answering the question.
 Pull facts from the retrieved Institutional Knowledge.
 Keep MacKenzie's warm voice — don't sound like a FAQ bot.
 For complex inquiries (specific child situations, financial details), respond warmly and direct to DMs: "DM us and we can help with that! 🙏"
-If the knowledge doesn't have the answer, direct to DMs rather than guessing.`,
+If the knowledge doesn't have the answer, STILL acknowledge what they asked about specifically, then direct to DMs. Never give a generic "DM us" without first showing you understood their question.
+For location requests ("bring Alpha to [city]"), respond warmly about expansion plans and direct to bio link.
+CRITICAL: NEVER state specific facts about Alpha's programs, curriculum, or methods unless those facts appear in the RETRIEVED KNOWLEDGE below. If the knowledge section is empty or doesn't mention the specific topic, do NOT invent details. Either skip or give a warm general response directing to bio/DMs.`,
   };
 
   return `You are generating Instagram comment replies as MacKenzie Price (@futureof_education).
@@ -79,7 +106,14 @@ ${VOICE_RULES}
 
 ${modeInstructions[mode]}
 
-Use the retrieved knowledge and examples below to ground your response. Do not make up information.
+Read the POST CAPTION below — your reply should feel like part of the conversation under THIS specific post, not a standalone brand statement. Reference what the post was about when relevant.
+
+RETRIEVED KNOWLEDGE is labeled by credibility tier:
+- 🔒 VERIFIED: You may cite specific facts from these sources.
+- 🎙 REFERENCE: Use for tone and voice guidance. Do NOT cite specific facts from these.
+- 📝 VOICE: Style reference only.
+If NO 🔒 VERIFIED sources contain information about a topic, do NOT invent facts. Either skip or give a warm general response.
+NEVER state specific facts (names, ages, numbers, program details, methods) unless they appear word-for-word in a 🔒 VERIFIED source below.
 
 Respond with JSON only:
 {"reply_text": "your reply here"} or {"skip": true, "reason": "why"}`;
@@ -101,7 +135,8 @@ function buildUserMessage(input: GeneratorInput): string {
   if (input.knowledge.length > 0) {
     parts.push("\nRETRIEVED KNOWLEDGE:");
     for (const k of input.knowledge) {
-      parts.push(`- [${k.brainliftType ?? k.sourceType}] ${k.content}`);
+      const tier = getSourceTier(k.sourceType, k.brainliftType);
+      parts.push(`- ${tier} [${k.brainliftType ?? k.sourceType}] ${k.content}`);
     }
   }
 
@@ -137,7 +172,7 @@ export async function generateReply(
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: GENERATOR_MODEL,
       max_tokens: 512,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -161,3 +196,5 @@ export async function generateReply(
 
   return JSON.parse(jsonMatch[0]) as GeneratorOutput;
 }
+
+export { GENERATOR_MODEL, GENERATOR_PROMPT_VERSION };

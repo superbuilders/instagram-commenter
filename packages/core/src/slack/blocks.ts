@@ -1,9 +1,22 @@
+import {
+  EDIT_CATEGORIES,
+  REJECT_REASONS,
+} from "../pipeline/index.js";
+
+function formatOptionLabel(value: string): string {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 interface CommentContext {
   id: string;
   text: string;
   authorUsername: string;
   likesCount: number;
   postCaption: string;
+  postPermalink?: string;
 }
 
 interface ReplyContext {
@@ -46,6 +59,16 @@ export function buildApprovalMessage(
           text: `*Post caption:*\n${postCaption.slice(0, 200)}`,
         },
       },
+      ...(comment.postPermalink
+        ? [
+            {
+              type: "context",
+              elements: [
+                { type: "mrkdwn", text: `<${comment.postPermalink}|View post on Instagram>` },
+              ],
+            },
+          ]
+        : []),
       { type: "divider" },
       {
         type: "section",
@@ -118,6 +141,26 @@ export function buildEditModal(replyId: string, originalText: string) {
     blocks: [
       {
         type: "input",
+        block_id: "edit_category_block",
+        element: {
+          type: "static_select",
+          action_id: "edit_category",
+          initial_option: {
+            text: { type: "plain_text", text: formatOptionLabel("voice_tweak") },
+            value: "voice_tweak",
+          },
+          options: EDIT_CATEGORIES.map((value) => ({
+            text: {
+              type: "plain_text",
+              text: formatOptionLabel(value),
+            },
+            value,
+          })),
+        },
+        label: { type: "plain_text", text: "What kind of edit is this?" },
+      },
+      {
+        type: "input",
         block_id: "reply_text_block",
         element: {
           type: "plain_text_input",
@@ -131,6 +174,57 @@ export function buildEditModal(replyId: string, originalText: string) {
           type: "plain_text",
           text: "Edit the reply. This will be posted as MacKenzie.",
         },
+      },
+      {
+        type: "input",
+        optional: true,
+        block_id: "edit_notes_block",
+        element: {
+          type: "plain_text_input",
+          action_id: "edit_notes",
+          multiline: true,
+        },
+        label: { type: "plain_text", text: "Notes (optional)" },
+      },
+    ],
+  };
+}
+
+export function buildRejectModal(replyId: string) {
+  return {
+    type: "modal" as const,
+    callback_id: "reject_reply",
+    title: { type: "plain_text" as const, text: "Reject Reply" },
+    submit: { type: "plain_text" as const, text: "Save" },
+    close: { type: "plain_text" as const, text: "Cancel" },
+    private_metadata: JSON.stringify({ replyId }),
+    blocks: [
+      {
+        type: "input",
+        block_id: "reject_reason_block",
+        element: {
+          type: "static_select",
+          action_id: "reject_reason",
+          options: REJECT_REASONS.map((value) => ({
+            text: {
+              type: "plain_text",
+              text: formatOptionLabel(value),
+            },
+            value,
+          })),
+        },
+        label: { type: "plain_text", text: "Why is this reply being rejected?" },
+      },
+      {
+        type: "input",
+        optional: true,
+        block_id: "reject_notes_block",
+        element: {
+          type: "plain_text_input",
+          action_id: "reject_notes",
+          multiline: true,
+        },
+        label: { type: "plain_text", text: "Notes (optional)" },
       },
     ],
   };
@@ -160,6 +254,27 @@ export function buildDeleteApprovalMessage(
           text: `*Comment by @${comment.authorUsername}* (${comment.likesCount} likes):\n>${comment.text.slice(0, 500)}`,
         },
       },
+      ...(comment.postCaption
+        ? [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Post caption:*\n${comment.postCaption.slice(0, 200)}`,
+              },
+            },
+          ]
+        : []),
+      ...(comment.postPermalink
+        ? [
+            {
+              type: "context",
+              elements: [
+                { type: "mrkdwn", text: `<${comment.postPermalink}|View post on Instagram>` },
+              ],
+            },
+          ]
+        : []),
       {
         type: "section",
         text: {
@@ -202,6 +317,9 @@ export function buildDigestMessage(stats: {
   deletionsExecuted: number;
   budgetUtilization: number;
   gapTopics: Array<{ topic: string; count: number }>;
+  topRejectReasons?: Array<{ reason: string; count: number }>;
+  pipelineIssues?: Array<{ label: string; count: number }>;
+  evalScore?: { accuracy: number; date: string } | null;
 }) {
   const blocks: unknown[] = [
     {
@@ -247,6 +365,17 @@ export function buildDigestMessage(stats: {
     },
   ];
 
+  if (stats.evalScore) {
+    blocks.push({ type: "divider" });
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `📊 *AI Quality:* Classifier accuracy ${stats.evalScore.accuracy}% (last eval: ${stats.evalScore.date})`,
+      },
+    });
+  }
+
   if (stats.gapTopics.length > 0) {
     blocks.push({ type: "divider" });
     blocks.push({
@@ -258,6 +387,34 @@ export function buildDigestMessage(stats: {
           ...stats.gapTopics.map(
             (t) => `  ${t.topic}: ${t.count} comments skipped`
           ),
+        ].join("\n"),
+      },
+    });
+  }
+
+  if ((stats.pipelineIssues?.length ?? 0) > 0) {
+    blocks.push({ type: "divider" });
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          "*Pipeline issues:*",
+          ...stats.pipelineIssues!.map((item) => `  ${item.label}: ${item.count}`),
+        ].join("\n"),
+      },
+    });
+  }
+
+  if ((stats.topRejectReasons?.length ?? 0) > 0) {
+    blocks.push({ type: "divider" });
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          "*Top rejection reasons:*",
+          ...stats.topRejectReasons!.map((item) => `  ${item.reason.replace(/_/g, " ")}: ${item.count}`),
         ].join("\n"),
       },
     });

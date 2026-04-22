@@ -112,3 +112,23 @@ export async function incrementPosted(
       )
     );
 }
+
+export async function decrementPending(
+  accountId: string,
+  db: Database
+): Promise<void> {
+  const today = new Date().toISOString().split("T")[0];
+
+  await db
+    .update(dailyBudgets)
+    .set({
+      repliesPending: sql`GREATEST(${dailyBudgets.repliesPending} - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(dailyBudgets.accountId, accountId),
+        eq(dailyBudgets.budgetDate, today)
+      )
+    );
+}

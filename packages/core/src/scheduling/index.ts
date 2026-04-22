@@ -3,6 +3,7 @@ export {
   getOrCreateDailyBudget,
   getRemainingBudget,
   incrementAllocated,
+  decrementPending,
   incrementPosted,
 } from "./budget-tracker.js";
 export {

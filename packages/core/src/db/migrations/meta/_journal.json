@@ -8,6 +8,27 @@
       "when": 1774142793680,
       "tag": "0000_material_forgotten_one",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775256889097,
+      "tag": "0001_opposite_skrulls",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775328665382,
+      "tag": "0002_aspiring_timeslip",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775338200000,
+      "tag": "0003_pipeline_observability",
+      "breakpoints": true
     }
   ]
 }

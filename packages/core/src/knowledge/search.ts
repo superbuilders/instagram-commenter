@@ -134,7 +134,7 @@ export async function retrieveForComment(
   const knowledgeOpts: Parameters<typeof searchKnowledge>[1] = {
     ...opts,
     limit: 5,
-    minSimilarity: 0.35,
+    minSimilarity: 0.45,
   };
 
   if (classificationGroup === "narrative_shaping") {
@@ -144,7 +144,7 @@ export async function retrieveForComment(
     knowledgeOpts.brainliftType = "institutional";
   }
 
-  const [knowledge, examples] = await Promise.all([
+  const [knowledge, allExamples] = await Promise.all([
     searchKnowledge(commentText, knowledgeOpts),
     searchExamples(commentText, {
       ...opts,
@@ -155,8 +155,11 @@ export async function retrieveForComment(
     }),
   ]);
 
+  // Only include examples with strong similarity — weak examples add noise
+  const examples = allExamples.filter((e) => e.similarity > 0.65);
+
   const hasRelevantKnowledge =
-    knowledge.length > 0 && knowledge[0].similarity > 0.4;
+    knowledge.length > 0 && knowledge[0].similarity > 0.5;
 
   return { knowledge, examples, hasRelevantKnowledge };
 }

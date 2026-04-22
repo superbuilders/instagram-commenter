@@ -1,11 +1,19 @@
 import { eq } from "drizzle-orm";
-import { replies, comments } from "@instagram-commenter/core/db";
+import { replies, comments, posts, accounts } from "@instagram-commenter/core/db";
 import { ingestResponseExample } from "@instagram-commenter/core/knowledge";
 import {
+  CLASSIFIER_POLICY_VERSION,
+  getReviewOutcomeCategory,
+  recordPipelineEvent,
+} from "@instagram-commenter/core/pipeline";
+import { deleteComment } from "@instagram-commenter/core/instagram";
+import { decrementPending } from "@instagram-commenter/core/scheduling";
+import {
+  buildEditModal,
+  buildRejectModal,
   verifySignature,
   updateMessage,
   openModal,
-  buildEditModal,
 } from "@instagram-commenter/core/slack";
 import { createHttpHandler, log } from "./lib/handler.js";
 import {
@@ -14,6 +22,63 @@ import {
   getOpenaiKey,
   getSlackChannelId,
 } from "./lib/secrets.js";
+
+type SlackStateValue = {
+  value?: string;
+  selected_option?: { value: string };
+};
+
+type SlackPayload = {
+  type: string;
+  trigger_id: string;
+  channel: { id: string };
+  message: { ts: string };
+  actions?: Array<{ action_id: string; value: string }>;
+  view?: {
+    callback_id: string;
+    private_metadata: string;
+    state: { values: Record<string, Record<string, SlackStateValue>> };
+  };
+  user: { id: string; username: string };
+};
+
+function readSelectedValue(
+  state: Record<string, Record<string, SlackStateValue>>,
+  blockId: string,
+  actionId: string
+): string | null {
+  const field = state[blockId]?.[actionId];
+  return field?.selected_option?.value ?? field?.value ?? null;
+}
+
+async function getAccountForComment(db: any, commentId: string) {
+  const [comment] = await db
+    .select({
+      id: comments.id,
+      text: comments.text,
+      classificationGroup: comments.classificationGroup,
+      platformCommentId: comments.platformCommentId,
+      postId: comments.postId,
+    })
+    .from(comments)
+    .where(eq(comments.id, commentId));
+
+  if (!comment) return { comment: null, account: null };
+
+  const [post] = await db
+    .select({ accountId: posts.accountId })
+    .from(posts)
+    .where(eq(posts.id, comment.postId));
+
+  if (!post) return { comment, account: null };
+
+  const [account] = await db
+    .select({ id: accounts.id, accessToken: accounts.accessToken })
+    .from(accounts)
+    .where(eq(accounts.id, post.accountId));
+
+  return { comment, account };
+}
 
 export const handler = createHttpHandler("slack-approval", async (db, body, headers) => {
   const signingSecret = getSlackSigningSecret();
@@ -28,25 +93,12 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
   const payloadStr = params.get("payload");
   if (!payloadStr) return { statusCode: 400, body: "Missing payload" };
 
-  const payload = JSON.parse(payloadStr) as {
-    type: string;
-    trigger_id: string;
-    channel: { id: string };
-    message: { ts: string };
-    actions?: Array<{ action_id: string; value: string }>;
-    view?: {
-      callback_id: string;
-      private_metadata: string;
-      state: { values: Record<string, Record<string, { value: string }>> };
-    };
-    user: { id: string; username: string };
-  };
+  const payload = JSON.parse(payloadStr) as SlackPayload;
 
   const slackToken = getSlackBotToken();
   const openaiKey = getOpenaiKey();
   const channelId = getSlackChannelId();
 
-  // Handle button interactions
   if (payload.type === "block_actions" && payload.actions) {
     const action = payload.actions[0];
     const data = JSON.parse(action.value);
@@ -56,6 +108,10 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         .select()
         .from(replies)
         .where(eq(replies.id, data.replyId));
+      const [comment] = await db
+        .select()
+        .from(comments)
+        .where(eq(comments.id, data.commentId));
 
       await db
         .update(replies)
@@ -63,14 +119,11 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           approvalStatus: "approved",
           approvedBy: payload.user.username,
           approvedAt: new Date(),
+          reviewOutcomeReason: "approved",
+          reviewOutcomeCategory: "operator",
+          reviewOutcomeNotes: null,
         })
         .where(eq(replies.id, data.replyId));
-
-      // Feedback loop: store as positive example
-      const [comment] = await db
-        .select()
-        .from(comments)
-        .where(eq(comments.id, data.commentId));
 
       if (comment && reply) {
         await ingestResponseExample(
@@ -79,8 +132,22 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           true,
           "slack_approved",
           comment.classificationGroup,
+          {
+            reviewReason: "approved",
+            originalReplyId: reply.id,
+            policyVersion: CLASSIFIER_POLICY_VERSION,
+          },
           { db, openaiApiKey: openaiKey }
         );
+
+        await recordPipelineEvent(db, {
+          commentId: comment.id,
+          replyId: reply.id,
+          stage: "slack_review",
+          status: "succeeded",
+          reasonCode: "slack_approved",
+          payload: { reviewer: payload.user.username },
+        });
       }
 
       await updateMessage(
@@ -106,91 +173,128 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
     }
 
     if (action.action_id === "edit") {
-      const modal = buildEditModal(data.replyId, data.originalText);
+      const modal = buildEditModal(data.replyId, data.originalText) as Record<string, unknown>;
+      modal.private_metadata = JSON.stringify({
+        replyId: data.replyId,
+        commentId: data.commentId,
+        messageTs: payload.message.ts,
+        channelId,
+      });
       await openModal(payload.trigger_id, modal, slackToken);
     }
 
     if (action.action_id === "reject") {
-      await db
-        .update(replies)
-        .set({ approvalStatus: "rejected" })
-        .where(eq(replies.id, data.replyId));
-
-      // Feedback loop: store as negative example
-      const [reply] = await db
-        .select()
-        .from(replies)
-        .where(eq(replies.id, data.replyId));
-      const [comment] = await db
-        .select()
-        .from(comments)
-        .where(eq(comments.id, data.commentId));
-
-      if (comment && reply) {
-        await ingestResponseExample(
-          comment.text,
-          reply.originalText,
-          false,
-          "slack_rejected",
-          comment.classificationGroup,
-          { db, openaiApiKey: openaiKey }
-        );
-      }
-
-      await updateMessage(
-        channelId,
-        payload.message.ts,
-        [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `❌ *Rejected* by @${payload.user.username}`,
-            },
-          },
-        ],
-        "Reply rejected",
-        slackToken
-      );
-
-      log("info", "Reply rejected", {
+      const modal = buildRejectModal(data.replyId) as Record<string, unknown>;
+      modal.private_metadata = JSON.stringify({
         replyId: data.replyId,
-        by: payload.user.username,
+        commentId: data.commentId,
+        messageTs: payload.message.ts,
+        channelId,
       });
+      await openModal(payload.trigger_id, modal, slackToken);
     }
 
-    // Deletion actions
     if (action.action_id === "confirm_delete") {
-      await db
-        .update(comments)
-        .set({
-          deletedAt: new Date(),
-          deletedBy: `slack:${payload.user.username}`,
-        })
-        .where(eq(comments.id, data.commentId));
+      const { comment, account } = await getAccountForComment(db, data.commentId);
 
-      await updateMessage(
-        channelId,
-        payload.message.ts,
-        [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `🗑️ *Deleted* by @${payload.user.username}`,
+      if (!comment || !account?.accessToken) {
+        await updateMessage(
+          channelId,
+          payload.message.ts,
+          [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `⚠️ *Delete failed* for comment ${data.commentId}`,
+              },
             },
-          },
-        ],
-        "Comment deleted",
-        slackToken
-      );
+          ],
+          "Comment delete failed",
+          slackToken
+        );
+        return { statusCode: 200, body: "" };
+      }
+
+      try {
+        await deleteComment(comment.platformCommentId, {
+          accessToken: account.accessToken,
+        });
+
+        await db
+          .update(comments)
+          .set({
+            deletedAt: new Date(),
+            deletedBy: `slack:${payload.user.username}`,
+          })
+          .where(eq(comments.id, data.commentId));
+
+        await recordPipelineEvent(db, {
+          commentId: data.commentId,
+          stage: "delete_execute",
+          status: "succeeded",
+          reasonCode: "slack_confirmed_delete",
+          payload: { reviewer: payload.user.username },
+        });
+
+        await updateMessage(
+          channelId,
+          payload.message.ts,
+          [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `🗑️ *Deleted* by @${payload.user.username}`,
+              },
+            },
+          ],
+          "Comment deleted",
+          slackToken
+        );
+      } catch (err) {
+        await recordPipelineEvent(db, {
+          commentId: data.commentId,
+          stage: "delete_execute",
+          status: "failed",
+          reasonCode: "slack_delete_failed",
+          reasonDetail: err instanceof Error ? err.message : String(err),
+        });
+
+        await updateMessage(
+          channelId,
+          payload.message.ts,
+          [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `⚠️ *Delete failed* by @${payload.user.username}\n${err instanceof Error ? err.message : String(err)}`,
+              },
+            },
+          ],
+          "Comment delete failed",
+          slackToken
+        );
+      }
     }
 
     if (action.action_id === "skip_delete") {
       await db
         .update(comments)
-        .set({ classificationGroup: "skip" })
+        .set({
+          classificationGroup: "skip",
+          skipReason: "delete_review_skipped_by_human",
+        })
         .where(eq(comments.id, data.commentId));
+
+      await recordPipelineEvent(db, {
+        commentId: data.commentId,
+        stage: "delete_review",
+        status: "skipped",
+        reasonCode: "delete_review_skipped_by_human",
+        payload: { reviewer: payload.user.username },
+      });
 
       await updateMessage(
         channelId,
@@ -210,21 +314,27 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
     }
   }
 
-  // Handle modal submission (edit flow)
   if (payload.type === "view_submission" && payload.view) {
     const { callback_id, private_metadata, state } = payload.view;
+    const metadata = JSON.parse(private_metadata) as {
+      replyId: string;
+      commentId?: string;
+      messageTs?: string;
+      channelId?: string;
+    };
 
     if (callback_id === "edit_reply") {
-      const { replyId } = JSON.parse(private_metadata);
-      const editedText =
-        state.values.reply_text_block.reply_text.value;
+      const replyId = metadata.replyId;
+      const editedText = readSelectedValue(state.values, "reply_text_block", "reply_text") ?? "";
+      const editCategory =
+        readSelectedValue(state.values, "edit_category_block", "edit_category") ?? "voice_tweak";
+      const editNotes = readSelectedValue(state.values, "edit_notes_block", "edit_notes");
 
       const [reply] = await db
         .select()
         .from(replies)
         .where(eq(replies.id, replyId));
 
-      // Store original as negative, edited as positive
       if (reply) {
         const [comment] = await db
           .select()
@@ -238,6 +348,12 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
             false,
             "slack_edited",
             comment.classificationGroup,
+            {
+              reviewReason: editCategory,
+              reviewNotes: editNotes,
+              originalReplyId: reply.id,
+              policyVersion: CLASSIFIER_POLICY_VERSION,
+            },
             { db, openaiApiKey: openaiKey }
           );
           await ingestResponseExample(
@@ -246,8 +362,27 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
             true,
             "slack_edited",
             comment.classificationGroup,
+            {
+              reviewReason: editCategory,
+              reviewNotes: editNotes,
+              originalReplyId: reply.id,
+              policyVersion: CLASSIFIER_POLICY_VERSION,
+            },
             { db, openaiApiKey: openaiKey }
           );
+
+          await recordPipelineEvent(db, {
+            commentId: comment.id,
+            replyId: reply.id,
+            stage: "slack_review",
+            status: "succeeded",
+            reasonCode: "slack_edited",
+            payload: {
+              reviewer: payload.user.username,
+              editCategory,
+              editNotes,
+            },
+          });
         }
       }
 
@@ -258,12 +393,118 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           approvalStatus: "approved",
           approvedBy: payload.user.username,
           approvedAt: new Date(),
+          reviewOutcomeReason: editCategory,
+          reviewOutcomeCategory: getReviewOutcomeCategory(editCategory),
+          reviewOutcomeNotes: editNotes ?? null,
         })
         .where(eq(replies.id, replyId));
+
+      if (metadata.messageTs) {
+        await updateMessage(
+          metadata.channelId ?? channelId,
+          metadata.messageTs,
+          [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `✏️ *Edited and approved* by @${payload.user.username}\nReason: ${editCategory.replace(/_/g, " ")}${editNotes ? `\nNotes: ${editNotes}` : ""}`,
+              },
+            },
+          ],
+          "Reply edited and approved",
+          slackToken
+        );
+      }
 
       log("info", "Reply edited and approved", {
         replyId,
         by: payload.user.username,
+        editCategory,
+      });
+    }
+
+    if (callback_id === "reject_reply") {
+      const replyId = metadata.replyId;
+      const rejectReason =
+        readSelectedValue(state.values, "reject_reason_block", "reject_reason") ?? "other";
+      const rejectNotes = readSelectedValue(state.values, "reject_notes_block", "reject_notes");
+
+      const [reply] = await db
+        .select()
+        .from(replies)
+        .where(eq(replies.id, replyId));
+
+      if (reply) {
+        const { comment, account } = await getAccountForComment(db, reply.commentId);
+
+        await db
+          .update(replies)
+          .set({
+            approvalStatus: "rejected",
+            reviewOutcomeReason: rejectReason,
+            reviewOutcomeCategory: getReviewOutcomeCategory(rejectReason),
+            reviewOutcomeNotes: rejectNotes ?? null,
+          })
+          .where(eq(replies.id, replyId));
+
+        if (comment) {
+          await ingestResponseExample(
+            comment.text,
+            reply.originalText,
+            false,
+            "slack_rejected",
+            comment.classificationGroup,
+            {
+              reviewReason: rejectReason,
+              reviewNotes: rejectNotes,
+              originalReplyId: reply.id,
+              policyVersion: CLASSIFIER_POLICY_VERSION,
+            },
+            { db, openaiApiKey: openaiKey }
+          );
+
+          await recordPipelineEvent(db, {
+            commentId: comment.id,
+            replyId: reply.id,
+            stage: "slack_review",
+            status: "failed",
+            reasonCode: "slack_rejected",
+            reasonDetail: rejectNotes ?? null,
+            payload: {
+              reviewer: payload.user.username,
+              rejectReason,
+            },
+          });
+        }
+
+        if (account?.id) {
+          await decrementPending(account.id, db);
+        }
+      }
+
+      if (metadata.messageTs) {
+        await updateMessage(
+          metadata.channelId ?? channelId,
+          metadata.messageTs,
+          [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `❌ *Rejected* by @${payload.user.username}\nReason: ${rejectReason.replace(/_/g, " ")}${rejectNotes ? `\nNotes: ${rejectNotes}` : ""}`,
+              },
+            },
+          ],
+          "Reply rejected",
+          slackToken
+        );
+      }
+
+      log("info", "Reply rejected", {
+        replyId,
+        by: payload.user.username,
+        rejectReason,
       });
     }
   }

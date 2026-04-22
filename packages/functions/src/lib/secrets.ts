@@ -1,11 +1,17 @@
-function requireEnv(name: string): string {
-  const val = process.env[name];
-  if (!val) throw new Error(`${name} env var not set`);
-  return val;
+import { Resource } from "sst";
+
+function getSecret(resourceName: string, envFallback: string): string {
+  try {
+    const val = (Resource as any)[resourceName]?.value;
+    if (val) return val;
+  } catch {}
+  const env = process.env[envFallback];
+  if (env) return env;
+  throw new Error(`${resourceName} secret not available`);
 }
 
-export const getAnthropicKey = () => requireEnv("ANTHROPIC_API_KEY");
-export const getOpenaiKey = () => requireEnv("OPENAI_API_KEY");
-export const getSlackBotToken = () => requireEnv("SLACK_BOT_TOKEN");
-export const getSlackSigningSecret = () => requireEnv("SLACK_SIGNING_SECRET");
-export const getSlackChannelId = () => requireEnv("SLACK_CHANNEL_ID");
+export const getAnthropicKey = () => getSecret("AnthropicApiKey", "ANTHROPIC_API_KEY");
+export const getOpenaiKey = () => getSecret("OpenaiApiKey", "OPENAI_API_KEY");
+export const getSlackBotToken = () => getSecret("SlackBotToken", "SLACK_BOT_TOKEN");
+export const getSlackSigningSecret = () => getSecret("SlackSigningSecret", "SLACK_SIGNING_SECRET");
+export const getSlackChannelId = () => getSecret("SlackChannelId", "SLACK_CHANNEL_ID");

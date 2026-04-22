@@ -58,12 +58,27 @@ export default $config({
       ],
     });
 
+    const addAccount = new sst.aws.Function("AddAccount", {
+      url: true,
+      handler: "packages/functions/src/add-account.handler",
+      timeout: "30 seconds",
+      vpc,
+      link: [dbPassword],
+      environment: {
+        DATABASE_HOST: db.address,
+        DATABASE_PORT: db.port.apply((p) => String(p)),
+        DATABASE_NAME: "instagram_commenter",
+        DATABASE_USERNAME: "app",
+      },
+    });
+
     return {
       MyBucket: storage.bucket.name,
       DatabaseEndpoint: db.endpoint,
       SlackHandlerUrl: slackHandler.url,
       MigratorUrl: migrator.url,
       SeederUrl: seeder.url,
+      AddAccountUrl: addAccount.url,
     };
   },
 });

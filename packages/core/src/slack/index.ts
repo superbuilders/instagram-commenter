@@ -7,6 +7,7 @@ export {
 export {
   buildApprovalMessage,
   buildEditModal,
+  buildRejectModal,
   buildDeleteApprovalMessage,
   buildDigestMessage,
 } from "./blocks.js";

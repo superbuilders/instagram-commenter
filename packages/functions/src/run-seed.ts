@@ -200,6 +200,7 @@ async function seedReplyPairs(opts: { db: any; openaiApiKey: string }): Promise<
         true,
         "ig_scrape",
         null,
+        {},
         opts
       );
       count++;

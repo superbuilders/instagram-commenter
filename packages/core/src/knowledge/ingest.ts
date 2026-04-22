@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import { knowledgeSources, brainliftSources } from "../db/schema.js";
 import { embedBatch, chunkText } from "../ai/embeddings.js";
+import { CLASSIFIER_POLICY_VERSION } from "../pipeline/index.js";
 
 const PODCAST_AD_PATTERNS = [
   /\bword from our sponsors?\b/i,
@@ -181,6 +182,12 @@ export async function ingestResponseExample(
   isPositive: boolean,
   source: string,
   classificationGroup: string | null,
+  metadata: {
+    reviewReason?: string | null;
+    reviewNotes?: string | null;
+    originalReplyId?: string | null;
+    policyVersion?: string | null;
+  } = {},
   opts: IngestOptions
 ): Promise<void> {
   const { responseExamples } = await import("../db/schema.js");
@@ -195,6 +202,10 @@ export async function ingestResponseExample(
     isPositive,
     source,
     classificationGroup: classificationGroup as any,
+    reviewReason: metadata.reviewReason ?? null,
+    reviewNotes: metadata.reviewNotes ?? null,
+    originalReplyId: metadata.originalReplyId ?? null,
+    policyVersion: metadata.policyVersion ?? CLASSIFIER_POLICY_VERSION,
     embedding: embedded.embedding,
   });
 }

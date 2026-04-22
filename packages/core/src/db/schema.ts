@@ -27,6 +27,26 @@ export const classificationGroupEnum = pgEnum("classification_group", [
   "skip",
 ]);
 
+export const pipelineStageEnum = pgEnum("pipeline_stage", [
+  "ingest",
+  "classify",
+  "allocate",
+  "retrieve",
+  "generate",
+  "verify",
+  "slack_review",
+  "post_reply",
+  "delete_review",
+  "delete_execute",
+]);
+
+export const pipelineStatusEnum = pgEnum("pipeline_status", [
+  "started",
+  "succeeded",
+  "skipped",
+  "failed",
+]);
+
 export const approvalStatusEnum = pgEnum("approval_status", [
   "pending",
   "approved",
@@ -104,9 +124,16 @@ export const comments = pgTable(
     classificationConfidence: real("classification_confidence"),
     narrativeTopic: varchar("narrative_topic", { length: 255 }),
     infoType: varchar("info_type", { length: 255 }),
+    skipReason: varchar("skip_reason", { length: 255 }),
+    deleteReason: varchar("delete_reason", { length: 255 }),
+    classificationPolicyVersion: varchar("classification_policy_version", {
+      length: 50,
+    }),
+    classificationRationaleTags: jsonb("classification_rationale_tags"),
     isFromAccountOwner: boolean("is_from_account_owner").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     deletedBy: varchar("deleted_by", { length: 255 }),
+    deleteSlackTs: varchar("delete_slack_ts", { length: 255 }),
     commentedAt: timestamp("commented_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -132,6 +159,10 @@ export const replies = pgTable(
     approvalStatus: approvalStatusEnum("approval_status").notNull().default("pending"),
     approvedBy: varchar("approved_by", { length: 255 }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    promptVersion: varchar("prompt_version", { length: 50 }),
+    reviewOutcomeReason: varchar("review_outcome_reason", { length: 100 }),
+    reviewOutcomeCategory: varchar("review_outcome_category", { length: 100 }),
+    reviewOutcomeNotes: text("review_outcome_notes"),
     postedAt: timestamp("posted_at", { withTimezone: true }),
     platformReplyId: varchar("platform_reply_id", { length: 255 }),
     slackMessageTs: varchar("slack_message_ts", { length: 255 }),
@@ -184,6 +215,10 @@ export const responseExamples = pgTable("response_examples", {
   isPositive: boolean("is_positive").notNull(),
   source: varchar("source", { length: 50 }).notNull(),
   classificationGroup: classificationGroupEnum("classification_group"),
+  reviewReason: varchar("review_reason", { length: 100 }),
+  reviewNotes: text("review_notes"),
+  originalReplyId: uuid("original_reply_id").references(() => replies.id),
+  policyVersion: varchar("policy_version", { length: 50 }),
   embedding: vector("embedding", { dimensions: 1536 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -236,5 +271,54 @@ export const dailyBudgets = pgTable(
       table.accountId,
       table.budgetDate
     ),
+  ]
+);
+
+export const evalResults = pgTable(
+  "eval_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    evalDate: date("eval_date").notNull(),
+    classificationAccuracy: real("classification_accuracy"),
+    classificationCorrect: integer("classification_correct"),
+    classificationTotal: integer("classification_total"),
+    replyQualityAvg: real("reply_quality_avg"),
+    evalType: varchar("eval_type", { length: 50 }).default("classification"),
+    promptVersion: varchar("prompt_version", { length: 50 }),
+    policyVersion: varchar("policy_version", { length: 50 }),
+    modelVersion: varchar("model_version", { length: 100 }),
+    sampleSize: integer("sample_size"),
+    metrics: jsonb("metrics"),
+    slices: jsonb("slices"),
+    perCategory: jsonb("per_category"),
+    confusion: jsonb("confusion"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("eval_results_date_idx").on(table.evalDate),
+  ]
+);
+
+export const commentPipelineEvents = pgTable(
+  "comment_pipeline_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => comments.id),
+    replyId: uuid("reply_id").references(() => replies.id),
+    stage: pipelineStageEnum("stage").notNull(),
+    status: pipelineStatusEnum("status").notNull(),
+    reasonCode: varchar("reason_code", { length: 100 }),
+    reasonDetail: text("reason_detail"),
+    payload: jsonb("payload"),
+    model: varchar("model", { length: 100 }),
+    promptVersion: varchar("prompt_version", { length: 50 }),
+    latencyMs: integer("latency_ms"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("comment_pipeline_events_comment_idx").on(table.commentId, table.createdAt),
+    index("comment_pipeline_events_stage_idx").on(table.stage, table.status, table.createdAt),
   ]
 );

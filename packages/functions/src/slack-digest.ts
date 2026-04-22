@@ -1,5 +1,5 @@
-import { eq, and, gte, lte, sql, count } from "drizzle-orm";
-import { comments, replies, dailyBudgets, accounts } from "@instagram-commenter/core/db";
+import { eq, and, gte, lte, sql, count, desc } from "drizzle-orm";
+import { comments, replies, dailyBudgets, evalResults, commentPipelineEvents } from "@instagram-commenter/core/db";
 import { postMessage, buildDigestMessage } from "@instagram-commenter/core/slack";
 import { createCronHandler, log } from "./lib/handler.js";
 import { getSlackBotToken, getSlackChannelId } from "./lib/secrets.js";
@@ -68,6 +68,83 @@ export const handler = createCronHandler("slack-digest", async (db) => {
     approvalMap[row.status] = Number(row.count);
   }
 
+  const rejectReasonBreakdown = await db
+    .select({
+      reason: replies.reviewOutcomeReason,
+      count: count(),
+    })
+    .from(replies)
+    .where(
+      and(
+        gte(replies.createdAt, startOfDay),
+        lte(replies.createdAt, endOfDay),
+        eq(replies.approvalStatus, "rejected")
+      )
+    )
+    .groupBy(replies.reviewOutcomeReason);
+
+  const topRejectReasons = rejectReasonBreakdown
+    .map((row) => ({
+      reason: row.reason ?? "unspecified",
+      count: Number(row.count),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const pipelineIssueBreakdown = await db
+    .select({
+      stage: commentPipelineEvents.stage,
+      status: commentPipelineEvents.status,
+      reasonCode: commentPipelineEvents.reasonCode,
+      count: count(),
+    })
+    .from(commentPipelineEvents)
+    .where(
+      and(
+        gte(commentPipelineEvents.createdAt, startOfDay),
+        lte(commentPipelineEvents.createdAt, endOfDay),
+        sql`${commentPipelineEvents.status} IN ('failed', 'skipped')`
+      )
+    )
+    .groupBy(
+      commentPipelineEvents.stage,
+      commentPipelineEvents.status,
+      commentPipelineEvents.reasonCode
+    );
+
+  const pipelineIssues = pipelineIssueBreakdown
+    .map((row) => ({
+      label: `${row.stage.replace(/_/g, " ")} / ${(row.reasonCode ?? row.status).replace(/_/g, " ")}`,
+      count: Number(row.count),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  const gapTopicBreakdown = await db
+    .select({
+      topic: sql<string>`COALESCE(${commentPipelineEvents.payload}->>'narrativeTopic', ${commentPipelineEvents.payload}->>'infoType', ${commentPipelineEvents.payload}->>'classificationGroup', 'general')`,
+      count: count(),
+    })
+    .from(commentPipelineEvents)
+    .where(
+      and(
+        gte(commentPipelineEvents.createdAt, startOfDay),
+        lte(commentPipelineEvents.createdAt, endOfDay),
+        eq(commentPipelineEvents.reasonCode, "no_relevant_knowledge")
+      )
+    )
+    .groupBy(
+      sql`COALESCE(${commentPipelineEvents.payload}->>'narrativeTopic', ${commentPipelineEvents.payload}->>'infoType', ${commentPipelineEvents.payload}->>'classificationGroup', 'general')`
+    );
+
+  const gapTopics = gapTopicBreakdown
+    .map((row) => ({
+      topic: row.topic,
+      count: Number(row.count),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
   // Deletion count
   const [deleteResult] = await db
     .select({ count: count() })
@@ -78,6 +155,21 @@ export const handler = createCronHandler("slack-digest", async (db) => {
         lte(comments.deletedAt, endOfDay)
       )
     );
+
+  // Get latest eval results
+  const latestEval = await db
+    .select()
+    .from(evalResults)
+    .where(eq(evalResults.evalType, "classification"))
+    .orderBy(desc(evalResults.evalDate))
+    .limit(1);
+
+  const evalScore = latestEval[0]
+    ? {
+        accuracy: Math.round((latestEval[0].classificationAccuracy ?? 0) * 100),
+        date: latestEval[0].evalDate,
+      }
+    : null;
 
   // Build and send digest
   const msg = buildDigestMessage({
@@ -91,7 +183,10 @@ export const handler = createCronHandler("slack-digest", async (db) => {
     repliesAuto: approvalMap["auto"] ?? 0,
     deletionsExecuted: Number(deleteResult?.count ?? 0),
     budgetUtilization: totalBudget > 0 ? totalPosted / totalBudget : 0,
-    gapTopics: [], // TODO: implement gap detection
+    gapTopics,
+    topRejectReasons,
+    pipelineIssues,
+    evalScore,
   });
 
   await postMessage(channelId, msg.blocks, msg.text, slackToken);

@@ -1,5 +1,6 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { comments, posts, accounts } from "@instagram-commenter/core/db";
+import { recordPipelineEvent } from "@instagram-commenter/core/pipeline";
 import { deleteComment } from "@instagram-commenter/core/instagram";
 import {
   postMessage,
@@ -26,13 +27,16 @@ export const handler = createCronHandler("delete-comments", async (db) => {
       authorUsername: comments.authorUsername,
       likesCount: comments.likesCount,
       classificationConfidence: comments.classificationConfidence,
+      deleteReason: comments.deleteReason,
       postId: comments.postId,
+      deleteSlackTs: comments.deleteSlackTs,
     })
     .from(comments)
     .where(
       and(
         eq(comments.classificationGroup, "delete"),
-        isNull(comments.deletedAt)
+        isNull(comments.deletedAt),
+        isNull(comments.deleteSlackTs)
       )
     )
     .limit(20);
@@ -46,13 +50,31 @@ export const handler = createCronHandler("delete-comments", async (db) => {
 
   for (const comment of candidates) {
     const confidence = comment.classificationConfidence ?? 0;
+    await recordPipelineEvent(db, {
+      commentId: comment.id,
+      stage: "delete_review",
+      status: "started",
+      payload: { confidence, deleteReason: comment.deleteReason ?? null },
+    });
 
     // Low confidence — reclassify as skip
     if (confidence < 0.7) {
       await db
         .update(comments)
-        .set({ classificationGroup: "skip" })
+        .set({
+          classificationGroup: "skip",
+          skipReason: "delete_low_confidence_reclassified",
+        })
         .where(eq(comments.id, comment.id));
+
+      await recordPipelineEvent(db, {
+        commentId: comment.id,
+        stage: "delete_review",
+        status: "skipped",
+        reasonCode: "delete_low_confidence_reclassified",
+        payload: { confidence },
+      });
+
       log("info", "Low confidence delete reclassified as skip", {
         commentId: comment.id,
         confidence,
@@ -81,8 +103,23 @@ export const handler = createCronHandler("delete-comments", async (db) => {
             .update(comments)
             .set({ deletedAt: new Date(), deletedBy: "auto" })
             .where(eq(comments.id, comment.id));
+          await recordPipelineEvent(db, {
+            commentId: comment.id,
+            stage: "delete_execute",
+            status: "succeeded",
+            reasonCode: "auto_deleted",
+            payload: { confidence },
+          });
           log("info", "Auto-deleted comment", { commentId: comment.id });
         } catch (err) {
+          await recordPipelineEvent(db, {
+            commentId: comment.id,
+            stage: "delete_execute",
+            status: "failed",
+            reasonCode: "auto_delete_failed",
+            reasonDetail: err instanceof Error ? err.message : String(err),
+            payload: { confidence },
+          });
           log("error", "Auto-delete failed", {
             commentId: comment.id,
             error: err instanceof Error ? err.message : String(err),
@@ -93,19 +130,39 @@ export const handler = createCronHandler("delete-comments", async (db) => {
     }
 
     // Medium confidence — send to Slack for approval
+    const [post] = await db
+      .select({ caption: posts.caption, permalink: posts.permalink })
+      .from(posts)
+      .where(eq(posts.id, comment.postId));
+
     const msg = buildDeleteApprovalMessage(
       {
         id: comment.id,
         text: comment.text,
         authorUsername: comment.authorUsername ?? "unknown",
         likesCount: comment.likesCount,
-        postCaption: "",
+        postCaption: post?.caption ?? "",
+        postPermalink: post?.permalink ?? undefined,
       },
-      "Classified as spam/troll",
+      comment.deleteReason ?? "Classified as spam/troll",
       confidence
     );
 
-    await postMessage(channelId, msg.blocks, msg.text, slackToken);
+    const ts = await postMessage(channelId, msg.blocks, msg.text, slackToken);
+
+    await db
+      .update(comments)
+      .set({ deleteSlackTs: ts })
+      .where(eq(comments.id, comment.id));
+
+    await recordPipelineEvent(db, {
+      commentId: comment.id,
+      stage: "delete_review",
+      status: "succeeded",
+      reasonCode: "sent_for_delete_review",
+      payload: { confidence, slackMessageTs: ts },
+    });
+
     log("info", "Delete sent to Slack for approval", {
       commentId: comment.id,
       confidence,

@@ -113,6 +113,7 @@ async function seedReplyPairs() {
       true,
       "ig_scrape",
       null,
+      {},
       opts
     );
     count++;

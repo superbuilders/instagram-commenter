@@ -1,5 +1,14 @@
 import { vpc } from "./vpc";
 
+const stagePrefix = `${$app.name}-${$app.stage}`;
+const isLegacyDevStage = $app.stage === "dev";
+const dbSubnetGroupName = isLegacyDevStage
+  ? "instagram-commenter-db-subnet-group"
+  : `${stagePrefix}-db-subnet-group`;
+const dbIdentifier = isLegacyDevStage
+  ? "ig-commenter-dev"
+  : `${stagePrefix}-db`;
+
 const dbSg = new aws.ec2.SecurityGroup("DbSg", {
   vpcId: vpc.id,
   ingress: [
@@ -21,14 +30,14 @@ const dbSg = new aws.ec2.SecurityGroup("DbSg", {
 });
 
 const dbSubnetGroup = new aws.rds.SubnetGroup("DbSubnetGroup", {
-  name: "instagram-commenter-db-subnet-group",
+  name: dbSubnetGroupName,
   subnetIds: vpc.privateSubnets,
 });
 
 const dbPassword = new sst.Secret("DatabasePassword");
 
 export const db = new aws.rds.Instance("Database", {
-  identifier: "ig-commenter-dev",
+  identifier: dbIdentifier,
   engine: "postgres",
   engineVersion: "16.4",
   instanceClass: "db.t4g.micro",
