@@ -18,7 +18,8 @@ interface GoldEntry {
   username: string;
   likesCount: number;
   postCaption: string;
-  notes: string;
+  classification?: string | null;
+  notes?: string | null;
   reviewed: boolean;
 }
 
@@ -30,9 +31,9 @@ const CATEGORIES = [
   "skip",
 ];
 
-function normalizeGoldLabel(notes: string): string | null {
-  if (!notes) return null;
-  const base = notes.split(" (")[0].trim();
+function normalizeGoldLabel(label?: string | null): string | null {
+  if (!label) return null;
+  const base = label.split(" (")[0].trim();
   if (base === "mixed") return null;
   if (CATEGORIES.includes(base)) return base;
   return null;
@@ -60,7 +61,7 @@ export const handler = createCronHandler("run-eval", async (db) => {
 
   const evalSet = goldData
     .filter((e) => e.reviewed)
-    .map((e) => ({ ...e, goldLabel: normalizeGoldLabel(e.notes) }))
+    .map((e) => ({ ...e, goldLabel: normalizeGoldLabel(e.classification ?? e.notes) }))
     .filter((e) => e.goldLabel !== null) as (GoldEntry & { goldLabel: string })[];
 
   log("info", "Eval starting", { totalEntries: evalSet.length });
