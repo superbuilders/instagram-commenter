@@ -505,6 +505,8 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         replyId,
         by: payload.user.username,
         rejectReason,
+        hasRejectNotes: Boolean(rejectNotes),
+        rejectNotesLength: rejectNotes?.length ?? 0,
       });
     }
   }

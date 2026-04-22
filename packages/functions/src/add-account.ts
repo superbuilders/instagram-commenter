@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Resource } from "sst";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
@@ -16,6 +16,91 @@ export async function handler(event: { body?: string } = {}) {
 
   try {
     const body = event.body ? JSON.parse(event.body) : {};
+
+    if (body.action === "feedback_inspect") {
+      if (body.exportKey !== password) {
+        await pool.end();
+        return { statusCode: 403, body: JSON.stringify({ success: false, error: "Forbidden" }) };
+      }
+
+      const limit = Number.isFinite(Number(body.limit))
+        ? Math.min(Math.max(Number(body.limit), 1), 25)
+        : 10;
+
+      const reviewedReplies = await db
+        .select({
+          replyId: schema.replies.id,
+          approvalStatus: schema.replies.approvalStatus,
+          reviewOutcomeReason: schema.replies.reviewOutcomeReason,
+          reviewOutcomeCategory: schema.replies.reviewOutcomeCategory,
+          reviewOutcomeNotes: schema.replies.reviewOutcomeNotes,
+          originalText: schema.replies.originalText,
+          editedText: schema.replies.editedText,
+          approvedBy: schema.replies.approvedBy,
+          approvedAt: schema.replies.approvedAt,
+          replyCreatedAt: schema.replies.createdAt,
+          commentId: schema.comments.id,
+          commentText: schema.comments.text,
+          authorUsername: schema.comments.authorUsername,
+          classificationGroup: schema.comments.classificationGroup,
+          classificationConfidence: schema.comments.classificationConfidence,
+          narrativeTopic: schema.comments.narrativeTopic,
+          infoType: schema.comments.infoType,
+          skipReason: schema.comments.skipReason,
+          deleteReason: schema.comments.deleteReason,
+          classificationRationaleTags: schema.comments.classificationRationaleTags,
+          commentedAt: schema.comments.commentedAt,
+          postPermalink: schema.posts.permalink,
+        })
+        .from(schema.replies)
+        .innerJoin(schema.comments, eq(schema.replies.commentId, schema.comments.id))
+        .innerJoin(schema.posts, eq(schema.comments.postId, schema.posts.id))
+        .where(eq(schema.replies.approvalStatus, body.status ?? "rejected"))
+        .orderBy(desc(schema.replies.createdAt))
+        .limit(limit);
+
+      const feedback = await Promise.all(
+        reviewedReplies.map(async (reply) => {
+          const examples = await db
+            .select({
+              id: schema.responseExamples.id,
+              source: schema.responseExamples.source,
+              isPositive: schema.responseExamples.isPositive,
+              reviewReason: schema.responseExamples.reviewReason,
+              reviewNotes: schema.responseExamples.reviewNotes,
+              policyVersion: schema.responseExamples.policyVersion,
+              createdAt: schema.responseExamples.createdAt,
+            })
+            .from(schema.responseExamples)
+            .where(eq(schema.responseExamples.originalReplyId, reply.replyId))
+            .orderBy(desc(schema.responseExamples.createdAt))
+            .limit(5);
+
+          const events = await db
+            .select({
+              id: schema.commentPipelineEvents.id,
+              stage: schema.commentPipelineEvents.stage,
+              status: schema.commentPipelineEvents.status,
+              reasonCode: schema.commentPipelineEvents.reasonCode,
+              reasonDetail: schema.commentPipelineEvents.reasonDetail,
+              payload: schema.commentPipelineEvents.payload,
+              createdAt: schema.commentPipelineEvents.createdAt,
+            })
+            .from(schema.commentPipelineEvents)
+            .where(eq(schema.commentPipelineEvents.replyId, reply.replyId))
+            .orderBy(desc(schema.commentPipelineEvents.createdAt))
+            .limit(10);
+
+          return { ...reply, examples, events };
+        })
+      );
+
+      await pool.end();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, count: feedback.length, feedback }),
+      };
+    }
 
     // Support deactivating an account by platformId (nulls the token)
     if (body.action === "deactivate" && body.platformId) {
