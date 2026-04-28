@@ -1,0 +1,672 @@
+{
+  "timestamp": "2026-04-19T03:19:57.792Z",
+  "policyVersion": "2026-04-04-v1",
+  "promptVersion": "2026-04-04-v1",
+  "modelVersion": "claude-sonnet-4-20250514",
+  "accuracy": 0.6896551724137931,
+  "correct": 60,
+  "total": 87,
+  "sampleSize": 87,
+  "confidenceBuckets": {
+    "low": {
+      "correct": 0,
+      "total": 0
+    },
+    "medium": {
+      "correct": 11,
+      "total": 21
+    },
+    "high": {
+      "correct": 49,
+      "total": 66
+    }
+  },
+  "results": [
+    {
+      "comment": "What about the cost to the environment? AI is incredibly taxing on natural resou",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Wow. More screen time? 👎🏼",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Ai is helping the US head straight to an Idiocracy",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "AI will destroy your kid’s future…. Stop using AI",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "AI can be wrong. But I do think 2 hrs a day of personalised learning is ideal. B",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Problem is is the Internet has caused a lot of problems. AI is on its own and ca",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "There’s already people who enroll their children strictly online, there’s really",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "I find these promo videos very unsettling. The over-dependence on AI is one thin",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "AI will be solution for country future! But SOME people can't realize it",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "AI is transforming education in a remarkable way. Mastering these technologies i",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "Intentional screen time 🙌💙",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "AI is such an important tool to elevate learning!🙌",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "Absolutely! AI is a tool — and how we teach kids to use it makes all the differe",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "@sloanealex_ girl you are so out of touch with reality ai teachers shouldn’t be ",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "AI absolutely cares about race; it reflects the biases of it's training data. So",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "@jefffelkerpainting AI is a tool, not a problem. It can be used to facilitate be",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "I think it’s ridiculous that what you call “learning” through AI is what public ",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "AI is rac@st they say….how can we let them teach.",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "Teltwood? Ai is on point in this Ai ad.",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.8
+    },
+    {
+      "comment": "I like everything about it, but I prefer less technology and less screen time",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "AI is a hot topic. \nI encourage my kid to use it \nAn attorney I know chastised m",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "I’m wondering if there’s an educational piece about the severe harm AI is doing ",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "AI is going to revolutionize our tired, redundant, wasteful, Public Education Sy",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "The only part of this that's concerning is the environmental impacts that I've h",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "This is actually a great idea because a normal teacher can’t adapt to the needs ",
+      "gold": "narrative_shaping",
+      "predicted": "narrative_shaping",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Amen 👏🫶🙌",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "👏👏👏",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Ugh. We need you in south Chandler Arizona. 👏👏",
+      "gold": "community_building",
+      "predicted": "informational",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "You’re the best!!!👏👏🔥🔥❤️❤️",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Nobody hears YES every time. Get up & try again!! ❤️🙌🥰",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "so sweet❤️",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "I wich I could afford this type of school 🔥 for my daughter. ❤️",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "👏👏👏👏👏👏",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "This is inspiring!",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "❤️❤️❤️❤️❤️Hii",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "That's amazing... I love this approach 😍❤️❤️🌻💌🦋",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Love this",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "🔥🔥🔥",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Accurate. 👏👏",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "100% 👏👏👏",
+      "gold": "community_building",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.8
+    },
+    {
+      "comment": "@henry_cramer_ the fact that that’s what you gathered from this video is incredi",
+      "gold": "community_building",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.85
+    },
+    {
+      "comment": "👏👏👏👏",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "I love this, I wish this could be schooling in the state of Indiana. I would def",
+      "gold": "community_building",
+      "predicted": "informational",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "👏👏😍👍",
+      "gold": "community_building",
+      "predicted": "community_building",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "where are these locations?",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Hi!  Been searching through your posts and though there is a lot of information ",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "How much are you paying guides?",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Where is this school located !?",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Do you have a school in San Diego? Where is your school located?",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "I really wish you guys come to Suffolk county in Ny!!! We need schools like this",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "If you ever need someone to start a new campus for you, let me know.",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "The evidence of a broken school system is how our society fails to give a reason",
+      "gold": "informational",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Tuition is, no joke….50 grand 🫠",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.85
+    },
+    {
+      "comment": "Why do you charge so much intuition if it’s just two hours of kids sitting with ",
+      "gold": "informational",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Will you reach out? Will you argue for an improved system by giving evidence of ",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.8
+    },
+    {
+      "comment": "Where is this located",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "I cant tell you how much I love this!!! Incredible...well done",
+      "gold": "informational",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Where are your schools located ?",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Where is this school located?",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Fake news",
+      "gold": "delete",
+      "predicted": "delete",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Absolute psychotic. Keep greedy grifters like you AWAY from schools. Our schools",
+      "gold": "delete",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.85
+    },
+    {
+      "comment": "My son had Zoom kindergarten because of Covid restrictions in California. Was ex",
+      "gold": "delete",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.85
+    },
+    {
+      "comment": "Grift",
+      "gold": "delete",
+      "predicted": "delete",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "100%. Also, please see your DMs for my inquiry.  Thank you @futureof_education",
+      "gold": "delete",
+      "predicted": "informational",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "The boy said “I think” the app is teaching me. Wow. This is a scam. Wake up peop",
+      "gold": "delete",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "I love the school model. Question, what communities are you tapping into? I woul",
+      "gold": "delete",
+      "predicted": "informational",
+      "correct": false,
+      "confidence": 0.8
+    },
+    {
+      "comment": "But did alpha teach that girl that if she listens during class she’ll get better",
+      "gold": "delete",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.85
+    },
+    {
+      "comment": "Can you please dm me with information on how to bring this into California? Inte",
+      "gold": "delete",
+      "predicted": "informational",
+      "correct": false,
+      "confidence": 0.95
+    },
+    {
+      "comment": "First Lady Michelle Obama tried to make the change and was criticized! Fake food",
+      "gold": "delete",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.8
+    },
+    {
+      "comment": "I do not like the \" my teacher is holding me back\"  narrative.  Individuals are ",
+      "gold": "delete",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Scam",
+      "gold": "delete",
+      "predicted": "delete",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "@suecordova0331 I am interested in this page and prefer emotional development an",
+      "gold": "delete",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.85
+    },
+    {
+      "comment": "Brainwashing and tokenizing your child as a pro-AI ploy. W western politics.",
+      "gold": "delete",
+      "predicted": "delete",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Finally someone who aligns with my thinking. The current school system has simil",
+      "gold": "delete",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.85
+    },
+    {
+      "comment": "😂",
+      "gold": "skip",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Wow",
+      "gold": "skip",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Aoa",
+      "gold": "skip",
+      "predicted": "skip",
+      "correct": true,
+      "confidence": 0.9
+    },
+    {
+      "comment": "😂😂",
+      "gold": "skip",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Qow",
+      "gold": "skip",
+      "predicted": "skip",
+      "correct": true,
+      "confidence": 0.95
+    },
+    {
+      "comment": "Nice",
+      "gold": "skip",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "✅✅✅",
+      "gold": "skip",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "LA",
+      "gold": "skip",
+      "predicted": "informational",
+      "correct": false,
+      "confidence": 0.85
+    },
+    {
+      "comment": "😍😍",
+      "gold": "skip",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.95
+    },
+    {
+      "comment": "🫶",
+      "gold": "skip",
+      "predicted": "community_building",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "I wouldn't keep touting that its just 2hrs of school.  I did homeschool and we h",
+      "gold": "informational",
+      "predicted": "narrative_shaping",
+      "correct": false,
+      "confidence": 0.9
+    },
+    {
+      "comment": "Where are you located? Any schools in Miami?",
+      "gold": "informational",
+      "predicted": "informational",
+      "correct": true,
+      "confidence": 0.95
+    }
+  ],
+  "confusion": {
+    "narrative_shaping": {
+      "narrative_shaping": 25,
+      "community_building": 0,
+      "informational": 0,
+      "delete": 0,
+      "skip": 0
+    },
+    "community_building": {
+      "narrative_shaping": 2,
+      "community_building": 16,
+      "informational": 2,
+      "delete": 0,
+      "skip": 0
+    },
+    "informational": {
+      "narrative_shaping": 3,
+      "community_building": 1,
+      "informational": 13,
+      "delete": 0,
+      "skip": 0
+    },
+    "delete": {
+      "narrative_shaping": 6,
+      "community_building": 2,
+      "informational": 3,
+      "delete": 4,
+      "skip": 0
+    },
+    "skip": {
+      "narrative_shaping": 0,
+      "community_building": 7,
+      "informational": 1,
+      "delete": 0,
+      "skip": 2
+    }
+  }
+}

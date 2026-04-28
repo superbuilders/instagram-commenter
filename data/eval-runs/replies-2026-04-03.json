@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-04-03T22:23:17.931Z",
+  "avgOld": 7.65,
+  "avgNew": 7.640000000000001,
+  "results": [
+    {
+      "comment": "What about the cost to the environment? AI is incredibly taxing on natural resources. It needs a mas",
+      "category": "narrative_shaping",
+      "oldReply": "You're absolutely right about the environmental impact - it's a serious concern we can't ignore. That's exactly why we need to be thoughtful about how we integrate AI in education rather than avoiding it altogether. At Alpha, we focus on using AI tools that help students learn more efficiently, which can actually reduce waste in traditional educational resources. The key is being intentional about implementation, not blanket adoption.",
+      "newReply": "You're absolutely right that AI energy use is a real concern. That's exactly why we need to be intentional about how we use it in education - not wasteful or excessive, but strategic. Our approach focuses on AI enhancing human connection and critical thinking, not replacing it. We're not running massive data centers - we're using AI tools thoughtfully to personalize learning and free up our guides to do what humans do best.",
+      "scoreOld": 7.5,
+      "scoreNew": 8,
+      "reasoning": "Both replies directly address the environmental concern with specificity. Reply B edges ahead with slightly more natural Instagram tone ('We're not running massive data centers'), better flow, and more concrete explanation of their approach. Reply A is solid but feels slightly more corporate. Both appropriately acknowledge the concern while pivoting to their solution.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "Wow. More screen time? 👎🏼",
+      "category": "narrative_shaping",
+      "oldReply": "Not more screen time! Our students spend most of their day working with hands-on materials, collaborating in small groups, and getting 1:1 guidance from our learning guides. Technology is just one tool we use strategically to personalize learning 🙌",
+      "newReply": "Actually, our students spend significantly less time on screens than traditional schools! They're collaborating, building, presenting, and working hands-on most of the day. The tech is just a tool when needed 👍",
+      "scoreOld": 7.8,
+      "scoreNew": 8.3,
+      "reasoning": "Both replies effectively address the screen time concern, but Reply B is more direct and impactful. Reply A is slightly wordy ('learning guides' feels jargony) while Reply B delivers the key counter-message more naturally. Both have appropriate tone and emojis, but Reply B's 'Actually...' opener and concise structure feels more conversational for Instagram.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "Ai is helping the US head straight to an Idiocracy",
+      "category": "narrative_shaping",
+      "oldReply": "I understand the concern, but we've seen the opposite at Alpha. Our kids are becoming more curious, asking deeper questions, and developing stronger critical thinking skills. AI frees up our guides to focus on what humans do best - fostering creativity, debate, and complex problem-solving. It's not replacing human connection, it's enhancing it.",
+      "newReply": "I understand that fear! At Alpha, we've found the opposite - AI actually helps kids think more critically. Our Socratic guides ask deeper questions and push students to reason through problems rather than just giving answers. The key is using AI as a thinking partner, not a replacement for thinking.",
+      "scoreOld": 7.8,
+      "scoreNew": 8.3,
+      "reasoning": "Both replies thoughtfully address the Idiocracy concern with specific counter-examples. Reply B edges ahead with better Instagram tone ('I understand that fear!' vs 'I understand the concern'), more natural flow, and clearer explanation of how AI enhances rather than replaces thinking. Reply A is slightly more corporate-sounding and longer than typical Instagram replies.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "AI will destroy your kid’s future…. Stop using AI",
+      "category": "narrative_shaping",
+      "oldReply": "I understand the concern! At Alpha, AI actually enables MORE human connection. Our students spend most of their day collaborating, discussing ideas, and working on real projects together. The AI handles routine tasks so our guides can focus on mentoring and students can focus on meaningful conversations and creative problem-solving.",
+      "newReply": "I understand that fear! Our AI actually creates MORE human connection, not less. Students spend way more time collaborating and discussing ideas because the AI handles the busy work. We're seeing kids who were struggling in traditional school absolutely thrive with this approach 🙌",
+      "scoreOld": 7.8,
+      "scoreNew": 8.5,
+      "reasoning": "Both replies effectively address the AI concern with reassurance. Reply A is more formal and detailed, explaining the role of guides and mentoring, but feels slightly corporate. Reply B is more conversational with better Instagram tone - uses 'that fear' acknowledgment, includes personal anecdote about struggling kids thriving, and ends with an emoji. Reply B feels more natural for the platform while maintaining specificity.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "Amen 👏🫶🙌",
+      "category": "community_building",
+      "oldReply": "Yes! It's so hard but so worth it 🙌",
+      "newReply": "🙌🙌",
+      "scoreOld": 7.25,
+      "scoreNew": 8,
+      "reasoning": "Reply A is slightly wordy for responding to a simple 'Amen' comment and feels somewhat generic. Reply B perfectly matches the energy and brevity of the original comment with appropriate celebratory emojis, feeling more natural and authentic for this type of supportive interaction on Instagram.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "👏👏👏",
+      "category": "community_building",
+      "oldReply": "🙌 This is what education should be!",
+      "newReply": "🙌🙌",
+      "scoreOld": 7.5,
+      "scoreNew": 8,
+      "reasoning": "Both replies appropriately match the celebratory tone of the clapping emoji comment. Reply A adds substance with 'This is what education should be!' which shows engagement with the post's message, but feels slightly over-elaborate for responding to just emoji. Reply B perfectly mirrors the commenter's energy with doubled hands-up emojis, matching the social media convention of escalating positive emoji responses. Reply B feels more natural and Instagram-native for this type of interaction.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "Ugh. We need you in south Chandler Arizona. 👏👏",
+      "category": "community_building",
+      "oldReply": "We would love to bring Alpha to Arizona! 🙌 Go to the link in my bio to learn more about bringing us to your community",
+      "newReply": "Working to bring Alpha to Arizona! Check the link in my bio to stay updated on expansion 🙌",
+      "scoreOld": 7.8,
+      "scoreNew": 7.3,
+      "reasoning": "Reply A scores higher on specificity by directly addressing the Arizona request with 'We would love to bring Alpha to Arizona!' and feels more conversational. Reply B is more concise but less engaging and doesn't acknowledge the enthusiasm as well. Both appropriately direct to bio link and use suitable emojis for Instagram.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "where are these locations?",
+      "category": "informational",
+      "oldReply": "We're in Austin, NYC, and Scottsdale! More locations coming soon. Check the link in my bio for all the details 👍",
+      "newReply": "We have schools in Austin, NYC, and Los Angeles! More locations coming soon 🙌 Check the link in my bio for details on all our campuses.",
+      "scoreOld": 8.25,
+      "scoreNew": 8,
+      "reasoning": "Both replies directly answer the location question with specificity. Reply A scores slightly higher due to mentioning Scottsdale (which feels more specific than the generic 'Los Angeles') and uses a more natural single emoji. Reply B is nearly identical in quality but 'Los Angeles' feels less distinctive for innovative schools, and the raised hands emoji is slightly less natural for location info than thumbs up.",
+      "mackenzieReply": null
+    },
+    {
+      "comment": "Hi!  Been searching through your posts and though there is a lot of information there are no calls t",
+      "category": "informational",
+      "oldReply": "Thank you for this feedback! You're absolutely right - we should make it clearer how people can get involved. Check the link in my bio for ways to bring Alpha to your community or explore our model. Always happy to chat more in DMs too! 🙏",
+      "newReply": "Great feedback! You're absolutely right - I should be clearer about next steps. Check the link in my bio for all our programs and how to get involved. We have options for families, educators, and those wanting to bring Alpha to their city! 🙌",
+      "scoreOld": 7.8,
+      "scoreNew": 8.5,
+      "reasoning": "Both replies address the specific feedback well. Reply B scores higher because it directly acknowledges the criticism ('I should be clearer') and provides more specific next steps (families, educators, bringing Alpha to cities), matching the commenter's request for solutions. Reply A is good but slightly more generic with 'bring Alpha to your community.' Both have appropriate tone and length for Instagram, with Reply B feeling more natural and comprehensive.",
+      "mackenzieReply": "@adhrucia great feedback! We have a linktree with info in the bio. I’ll work on other CTA’s too."
+    },
+    {
+      "comment": "How much are you paying guides?",
+      "category": "informational",
+      "oldReply": "Our guides are compensated competitively! For specific details, DM us and we can share more info about our compensation structure 🙏",
+      "newReply": "DM us and we can help with that! 🙏",
+      "scoreOld": 7,
+      "scoreNew": 3.5,
+      "reasoning": "Reply A directly addresses the compensation question with specific acknowledgment ('competitively compensated') and appropriate next steps, though it could be more natural. Reply B is too generic - doesn't acknowledge what they're asking about and could apply to any question, making it feel like an automated response.",
+      "mackenzieReply": null
+    }
+  ]
+}

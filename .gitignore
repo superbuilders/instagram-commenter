@@ -3,6 +3,8 @@ node_modules
 
 # sst
 .sst
+sst-env.d.ts
+packages/*/sst-env.d.ts
 
 # tmp files
 .#*
@@ -17,3 +19,13 @@ node_modules
 # misc
 .DS_Store
 data/apify-raw/
+
+# local assistant memory
+.claude/
+
+# generated eval outputs; preserve intentional baselines under data/eval-runs/
+data/eval-results.json
+data/eval-replies-results.json
+
+# private credentials/troubleshooting notes
+docs/meta-api-troubleshooting.md
