@@ -3,6 +3,16 @@ import { Resource } from "sst";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@instagram-commenter/core/db";
+import { postMessage } from "@instagram-commenter/core/slack";
+
+function truncate(text: string | null | undefined, max: number): string {
+  if (!text) return "";
+  return text.length > max ? `${text.slice(0, max - 1)}...` : text;
+}
+
+function formatGroup(group: string): string {
+  return group.replace(/_/g, " ");
+}
 
 export async function handler(event: { body?: string } = {}) {
   const host = process.env.DATABASE_HOST;
@@ -16,6 +26,140 @@ export async function handler(event: { body?: string } = {}) {
 
   try {
     const body = event.body ? JSON.parse(event.body) : {};
+
+    if (body.action === "missed_comments_report") {
+      if (body.exportKey !== password) {
+        await pool.end();
+        return { statusCode: 403, body: JSON.stringify({ success: false, error: "Forbidden" }) };
+      }
+
+      const lookbackDays = Number.isFinite(Number(body.lookbackDays))
+        ? Math.min(Math.max(Number(body.lookbackDays), 1), 14)
+        : 7;
+      const limit = Number.isFinite(Number(body.limit))
+        ? Math.min(Math.max(Number(body.limit), 1), 15)
+        : 15;
+
+      const { rows } = await pool.query<{
+        id: string;
+        text: string;
+        author_username: string | null;
+        likes_count: number;
+        classification_group: string;
+        narrative_topic: string | null;
+        info_type: string | null;
+        skip_reason: string | null;
+        permalink: string | null;
+        no_knowledge_events: string;
+      }>(
+        `
+        SELECT
+          c.id,
+          c.text,
+          c.author_username,
+          c.likes_count,
+          c.classification_group,
+          c.narrative_topic,
+          c.info_type,
+          c.skip_reason,
+          p.permalink,
+          (
+            SELECT COUNT(*)
+            FROM comment_pipeline_events e
+            WHERE e.comment_id = c.id
+              AND e.reason_code = 'no_relevant_knowledge'
+          ) AS no_knowledge_events
+        FROM comments c
+        INNER JOIN posts p ON p.id = c.post_id
+        LEFT JOIN replies r ON r.comment_id = c.id
+        WHERE c.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+          AND c.classification_group IN ('narrative_shaping', 'community_building', 'informational')
+          AND r.id IS NULL
+        ORDER BY
+          CASE WHEN c.classification_group = 'narrative_shaping' THEN 0
+               WHEN c.classification_group = 'community_building' THEN 1
+               ELSE 2
+          END,
+          c.likes_count DESC,
+          c.created_at DESC
+        LIMIT $2
+        `,
+        [lookbackDays, limit]
+      );
+
+      const counts = await pool.query<{
+        classification_group: string;
+        count: string;
+      }>(
+        `
+        SELECT c.classification_group, COUNT(*) AS count
+        FROM comments c
+        LEFT JOIN replies r ON r.comment_id = c.id
+        WHERE c.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+          AND c.classification_group IN ('narrative_shaping', 'community_building', 'informational')
+          AND r.id IS NULL
+        GROUP BY c.classification_group
+        ORDER BY count DESC
+        `,
+        [lookbackDays]
+      );
+
+      const summary = counts.rows
+        .map((row) => `${formatGroup(row.classification_group)}: ${row.count}`)
+        .join(" | ");
+
+      const blocks: any[] = [
+        {
+          type: "header",
+          text: { type: "plain_text", text: `Missed IG comments: last ${lookbackDays} days` },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: summary
+              ? `Unhandled actionable comments by type: ${summary}`
+              : "No unhandled actionable comments found.",
+          },
+        },
+      ];
+
+      for (const row of rows) {
+        const topic = row.narrative_topic ?? row.info_type ?? "general";
+        const retryNote =
+          Number(row.no_knowledge_events) > 0
+            ? ` | no knowledge hits: ${row.no_knowledge_events}`
+            : "";
+        const link = row.permalink ? ` | <${row.permalink}|post>` : "";
+        blocks.push(
+          { type: "divider" },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                `*${formatGroup(row.classification_group)}* / ${topic} / ${row.likes_count} likes${retryNote}${link}\n` +
+                `*@${row.author_username ?? "unknown"}:* ${truncate(row.text, 450)}`,
+            },
+          }
+        );
+      }
+
+      const slackToken = (Resource as any).SlackBotToken.value;
+      const channelId = (Resource as any).SlackChannelId.value;
+      await postMessage(
+        channelId,
+        blocks,
+        `Missed IG comments report: ${rows.length} comments from the last ${lookbackDays} days`,
+        slackToken
+      );
+
+      await pool.end();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, count: rows.length, summary: counts.rows }),
+      };
+    }
 
     if (body.action === "feedback_inspect") {
       if (body.exportKey !== password) {

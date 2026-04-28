@@ -20,7 +20,7 @@ export default $config({
     const { dbPassword } = await import("./infra/database");
     const { vpc } = await import("./infra/vpc");
 
-    const { openaiKey } = await import("./infra/secrets");
+    const { openaiKey, slackBotToken, slackChannelId } = await import("./infra/secrets");
 
     const migrator = new sst.aws.Function("Migrator", {
       url: true,
@@ -63,7 +63,7 @@ export default $config({
       handler: "packages/functions/src/add-account.handler",
       timeout: "30 seconds",
       vpc,
-      link: [dbPassword],
+      link: [dbPassword, slackBotToken, slackChannelId],
       environment: {
         DATABASE_HOST: db.address,
         DATABASE_PORT: db.port.apply((p) => String(p)),

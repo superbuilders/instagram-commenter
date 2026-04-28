@@ -1,4 +1,4 @@
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, isNull, inArray, desc } from "drizzle-orm";
 import { comments, posts, replies, accounts } from "@instagram-commenter/core/db";
 import { generateReply, verifyReply } from "@instagram-commenter/core/ai";
 import { retrieveForComment } from "@instagram-commenter/core/knowledge";
@@ -24,6 +24,8 @@ const ACTIONABLE_GROUPS = [
   "informational",
 ] as const;
 
+const CANDIDATE_SCAN_LIMIT = 500;
+
 export const handler = createCronHandler("allocate-replies", async (db) => {
   const anthropicKey = getAnthropicKey();
   const openaiKey = getOpenaiKey();
@@ -39,7 +41,8 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
       continue;
     }
 
-    // Find classified comments that don't have a reply record yet
+    // Find classified comments that don't have a reply record yet and have not
+    // already reached a terminal skip state.
     const candidates = await db
       .select({
         id: comments.id,
@@ -59,10 +62,12 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
         and(
           eq(posts.accountId, account.id),
           inArray(comments.classificationGroup, [...ACTIONABLE_GROUPS]),
-          isNull(replies.id)
+          isNull(replies.id),
+          isNull(comments.skipReason)
         )
       )
-      .limit(50);
+      .orderBy(desc(comments.likesCount), desc(comments.createdAt))
+      .limit(CANDIDATE_SCAN_LIMIT);
 
     if (candidates.length === 0) {
       log("info", "No unallocated comments", { accountId: account.id });
@@ -85,16 +90,16 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
       remaining,
     });
 
-    const allocatedIds = new Set(allocated.map((item) => item.id));
-    for (const candidate of candidates) {
+    for (const candidate of allocated) {
+      const selected = candidates.find((c) => c.id === candidate.id)!;
       await recordPipelineEvent(db, {
-        commentId: candidate.id,
+        commentId: selected.id,
         stage: "allocate",
-        status: allocatedIds.has(candidate.id) ? "succeeded" : "skipped",
-        reasonCode: allocatedIds.has(candidate.id) ? "selected_for_generation" : "budget_exhausted",
+        status: "succeeded",
+        reasonCode: "selected_for_generation",
         payload: {
-          classificationGroup: candidate.classificationGroup,
-          likesCount: candidate.likesCount,
+          classificationGroup: selected.classificationGroup,
+          likesCount: selected.likesCount,
           remainingBudget: remaining,
         },
       });
@@ -144,6 +149,11 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
             comment.classificationGroup === "informational") &&
           !retrieval.hasRelevantKnowledge
         ) {
+          await db
+            .update(comments)
+            .set({ skipReason: "no_relevant_knowledge" })
+            .where(eq(comments.id, comment.id));
+
           log("info", `Skipping — no relevant knowledge for ${comment.classificationGroup}`, {
             commentId: comment.id,
           });
@@ -173,6 +183,11 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
         );
 
         if (result.skip) {
+          await db
+            .update(comments)
+            .set({ skipReason: "generator_skip" })
+            .where(eq(comments.id, comment.id));
+
           await recordPipelineEvent(db, {
             commentId: comment.id,
             stage: "generate",
@@ -218,6 +233,11 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
         );
 
         if (!verification.verified) {
+          await db
+            .update(comments)
+            .set({ skipReason: "verification_failed" })
+            .where(eq(comments.id, comment.id));
+
           await recordPipelineEvent(db, {
             commentId: comment.id,
             stage: "verify",

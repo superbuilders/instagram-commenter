@@ -16,6 +16,10 @@ const dbEnv = {
 };
 
 const cronsEnabled = process.env.ENABLE_COMMENT_CRONS === "true";
+const postRepliesEnabled = process.env.ENABLE_POST_REPLY_CRON === "true";
+const deleteCommentsEnabled = process.env.ENABLE_DELETE_COMMENT_CRON === "true";
+const autoIngestEnabled = process.env.ENABLE_AUTO_INGEST_CRON === "true";
+const weeklyEvalEnabled = process.env.ENABLE_WEEKLY_EVAL_CRON === "true";
 
 function cronFn(
   handler: string,
@@ -51,13 +55,13 @@ export const allocateReplies = new sst.aws.Cron("AllocateReplies", {
 });
 
 export const postReplies = new sst.aws.Cron("PostReplies", {
-  enabled: cronsEnabled,
+  enabled: postRepliesEnabled,
   schedule: "rate(2 minutes)",
   function: cronFn("packages/functions/src/post-replies.handler", "60 seconds"),
 });
 
 export const deleteComments = new sst.aws.Cron("DeleteComments", {
-  enabled: cronsEnabled,
+  enabled: deleteCommentsEnabled,
   schedule: "rate(15 minutes)",
   function: cronFn(
     "packages/functions/src/delete-comments.handler",
@@ -82,7 +86,7 @@ export const refreshToken = new sst.aws.Cron("RefreshToken", {
 });
 
 export const weeklyEval = new sst.aws.Cron("WeeklyEval", {
-  enabled: cronsEnabled,
+  enabled: weeklyEvalEnabled,
   schedule: "cron(0 15 ? * MON *)",
   function: {
     handler: "packages/functions/src/run-eval-cron.handler",
@@ -97,7 +101,7 @@ export const weeklyEval = new sst.aws.Cron("WeeklyEval", {
 });
 
 export const autoIngest = new sst.aws.Cron("AutoIngest", {
-  enabled: cronsEnabled,
+  enabled: autoIngestEnabled,
   schedule: "rate(1 hour)",
   function: cronFn(
     "packages/functions/src/auto-ingest.handler",
