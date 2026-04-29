@@ -316,9 +316,9 @@ export function buildDigestMessage(stats: {
   repliesAuto: number;
   deletionsExecuted: number;
   budgetUtilization: number;
-  gapTopics: Array<{ topic: string; count: number }>;
+  gapTopics: Array<{ topic: string; commentCount: number; eventCount: number }>;
   topRejectReasons?: Array<{ reason: string; count: number }>;
-  pipelineIssues?: Array<{ label: string; count: number }>;
+  pipelineIssues?: Array<{ label: string; commentCount: number; eventCount: number }>;
   evalScore?: { accuracy: number; date: string } | null;
 }) {
   const blocks: unknown[] = [
@@ -385,7 +385,7 @@ export function buildDigestMessage(stats: {
         text: [
           "*Knowledge gaps (topics the bot couldn't answer):*",
           ...stats.gapTopics.map(
-            (t) => `  ${t.topic}: ${t.count} comments skipped`
+            (t) => `  ${t.topic}: ${t.commentCount} unique comments (${t.eventCount} events)`
           ),
         ].join("\n"),
       },
@@ -400,7 +400,9 @@ export function buildDigestMessage(stats: {
         type: "mrkdwn",
         text: [
           "*Pipeline issues:*",
-          ...stats.pipelineIssues!.map((item) => `  ${item.label}: ${item.count}`),
+          ...stats.pipelineIssues!.map(
+            (item) => `  ${item.label}: ${item.commentCount} unique comments (${item.eventCount} events)`
+          ),
         ].join("\n"),
       },
     });

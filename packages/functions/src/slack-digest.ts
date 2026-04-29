@@ -96,7 +96,8 @@ export const handler = createCronHandler("slack-digest", async (db) => {
       stage: commentPipelineEvents.stage,
       status: commentPipelineEvents.status,
       reasonCode: commentPipelineEvents.reasonCode,
-      count: count(),
+      eventCount: count(),
+      commentCount: sql<number>`COUNT(DISTINCT ${commentPipelineEvents.commentId})`,
     })
     .from(commentPipelineEvents)
     .where(
@@ -115,22 +116,25 @@ export const handler = createCronHandler("slack-digest", async (db) => {
   const pipelineIssues = pipelineIssueBreakdown
     .map((row) => ({
       label: `${row.stage.replace(/_/g, " ")} / ${(row.reasonCode ?? row.status).replace(/_/g, " ")}`,
-      count: Number(row.count),
+      eventCount: Number(row.eventCount),
+      commentCount: Number(row.commentCount),
     }))
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => b.commentCount - a.commentCount || b.eventCount - a.eventCount)
     .slice(0, 6);
 
   const gapTopicBreakdown = await db
     .select({
       topic: sql<string>`COALESCE(${commentPipelineEvents.payload}->>'narrativeTopic', ${commentPipelineEvents.payload}->>'infoType', ${commentPipelineEvents.payload}->>'classificationGroup', 'general')`,
-      count: count(),
+      eventCount: count(),
+      commentCount: sql<number>`COUNT(DISTINCT ${commentPipelineEvents.commentId})`,
     })
     .from(commentPipelineEvents)
     .where(
       and(
         gte(commentPipelineEvents.createdAt, startOfDay),
         lte(commentPipelineEvents.createdAt, endOfDay),
-        eq(commentPipelineEvents.reasonCode, "no_relevant_knowledge")
+        eq(commentPipelineEvents.reasonCode, "no_relevant_knowledge"),
+        sql`COALESCE(${commentPipelineEvents.payload}->>'classificationGroup', '') <> 'community_building'`
       )
     )
     .groupBy(
@@ -140,9 +144,10 @@ export const handler = createCronHandler("slack-digest", async (db) => {
   const gapTopics = gapTopicBreakdown
     .map((row) => ({
       topic: row.topic,
-      count: Number(row.count),
+      eventCount: Number(row.eventCount),
+      commentCount: Number(row.commentCount),
     }))
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => b.commentCount - a.commentCount || b.eventCount - a.eventCount)
     .slice(0, 5);
 
   // Deletion count
