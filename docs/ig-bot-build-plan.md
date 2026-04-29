@@ -1,15 +1,85 @@
-# Instagram Comment Bot Build Plan
+# Instagram Comment Bot Reviewer Handoff
 
-## Objective
+## Executive Summary
 
-Build an Instagram comment assistant for MacKenzie Price that reliably identifies the comments worth attention, drafts grounded replies in her voice, sends them to Slack for human review, learns from review feedback, and only posts or deletes when the operating mode explicitly allows it.
+We are building an Instagram comment assistant for MacKenzie Price / Future of Education. The goal is not to make a generic auto-reply bot. The goal is to create a reliable human-in-the-loop system that helps the team notice the highest-leverage comments, draft high-quality responses in MacKenzie's voice, route questionable items for review, and improve over time based on the team's approvals, edits, and rejections.
 
-The bot should not reply to everything. Its job is to surface and handle the highest-leverage comments:
+The core product bet is that Instagram comments are not just inbox noise. They are public narrative surfaces. A highly liked comment about "too much screen time," "AI replacing teachers," or "kids need real socialization" can shape how thousands of people understand Alpha School unless the team responds thoughtfully. The bot should make sure those moments are surfaced and handled with the right knowledge, tone, and restraint.
+
+The system should be conservative. It should prefer skipping or asking for review over making unsupported claims. Slack approval remains the operating control layer.
+
+## What We Are Trying To Achieve
+
+The bot should do five jobs well:
+
+1. **Awareness:** Identify important comments that would otherwise be missed, especially after high-volume periods or operational pauses.
+2. **Prioritization:** Focus attention on the comments with the most public leverage, not every comment.
+3. **Grounded drafting:** Generate replies using approved knowledge and MacKenzie's observed voice, without inventing facts.
+4. **Human review:** Put every proposed reply in Slack with enough context for a human to approve, edit, reject, or eventually post.
+5. **Learning loop:** Convert every human decision into structured feedback that improves future routing and generation.
+
+## What The Bot Should Reply To
 
 - Narrative shaping: visible comments that challenge Alpha, 2 Hour Learning, AI learning, screen time, teachers, traditional school, or related public narratives.
 - Community building: warm replies to supporters, parents, students, and real community moments.
 - Informational: factual questions about locations, admissions, programs, cost, schedule, and next steps.
 - Deletion review: spam, pure trolling, or bad-faith comments that may need removal.
+
+## What The Bot Should Not Do
+
+- It should not auto-reply to everything.
+- It should not debate people who are being sarcastic, baiting, dismissive, or not actually asking for engagement.
+- It should not answer factual questions without retrieved knowledge.
+- It should not invent statistics, locations, program claims, student details, or policy positions.
+- It should not delete comments without explicit human-approved operating mode.
+- It should not treat one approved reply as permission to auto-post future similar replies without review until the system is proven.
+
+## Operating Principle: The Karpathy Loop
+
+We want a practical version of the "Karpathy loop":
+
+1. The model makes a prediction or draft.
+2. A human reviews the output in the real workflow.
+3. The human's correction is captured as structured data.
+4. The system uses that data to improve future behavior.
+5. The improved behavior is measured with evals and production feedback.
+
+For this bot, the loop is:
+
+```txt
+Instagram comment
+  -> classification
+  -> knowledge retrieval
+  -> generated reply or skip
+  -> Slack review
+  -> approve / edit / reject
+  -> store feedback
+  -> retrieve feedback on future similar comments
+  -> update evals and prompts
+```
+
+The important requirement is that feedback must not only be stored. It must actively affect future behavior.
+
+Examples:
+
+- If a reply is approved, similar future comments can use it as a positive voice/style example.
+- If a reply is edited, the original reply becomes a negative example and the edited reply becomes a positive example.
+- If a reply is rejected as `should_not_reply`, similar future comments should be skipped before generation or shown with a warning.
+- If a reply is rejected as `factually_risky`, future generation should either retrieve stronger knowledge or skip.
+- If repeated comments are skipped for `no_relevant_knowledge`, the system should create a knowledge gap report so the team can add the missing talking points.
+
+## Reviewer Focus
+
+When reviewing this system, focus on whether the code supports the product loop above:
+
+- Are we ingesting enough comments to avoid missing important moments?
+- Are we classifying comments into useful action buckets?
+- Are narrative replies grounded in the right knowledge?
+- Are Slack actions captured as durable training data?
+- Are rejected examples used to prevent repeated mistakes?
+- Are knowledge gaps visible to the team?
+- Are posting/deletion modes explicit and safe?
+- Are there evals that measure whether the loop is improving?
 
 ## Current Pipeline
 
@@ -93,6 +163,8 @@ The next build step should make negative feedback operational.
 
 ## Feedback Learning Improvements
 
+The feedback loop should be treated as product-critical infrastructure. Slack review is not only a safety gate; it is the data-labeling interface for the bot. Every button click and note should either improve routing, improve generation, expose a knowledge gap, or become an eval case.
+
 ### 1. Retrieve Negative Examples
 
 For every candidate comment, retrieve both:
@@ -146,6 +218,32 @@ Rejected replies with useful notes should become eval rows. For the screenshot, 
 - Gold reason: `should_not_reply`.
 
 This trains the classifier/routing layer, not just the generator.
+
+### 5. Add Feedback Metrics
+
+The system should report whether feedback is improving outcomes:
+
+- Rejection rate by classification group.
+- Top rejection reasons.
+- Edit rate by classification group.
+- Repeat rejection clusters, such as many `should_not_reply` rejections for sarcastic comments.
+- Number of comments skipped because they matched prior negative feedback.
+- Number of generated replies using positive examples.
+- Number of generated replies warned by negative examples.
+
+### 6. Acceptance Criteria For The Learning Loop
+
+The Karpathy-style loop is not complete until all of these are true:
+
+- A rejected Slack reply is saved with reason and notes.
+- The rejected reply is embedded as a negative example.
+- Similar future comments retrieve that negative example.
+- Routing can skip a similar future comment before generation.
+- If generation still happens, the prompt includes the negative example as an avoidance pattern.
+- Rejections with clear notes can be promoted into eval cases.
+- A weekly report shows whether rejection/edit rates are improving.
+
+In the current codebase, the first two are implemented. The remaining items are the core feedback-loop work still to build.
 
 ## Product Issues Found In Code Sweep
 
