@@ -1,6 +1,7 @@
 import { eq, and, sql } from "drizzle-orm";
 import type { Database } from "../db/index.js";
 import { dailyBudgets } from "../db/schema.js";
+import { getLocalDateString } from "../time.js";
 
 export function calculateDailyBudget(commentVolume: number): number {
   if (commentVolume < 50) return 5;
@@ -15,7 +16,7 @@ export async function getOrCreateDailyBudget(
   db: Database,
   commentVolume = 150
 ) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
 
   const existing = await db
     .select()
@@ -67,7 +68,7 @@ export async function incrementAllocated(
   group: "narrative_shaping" | "community_building" | "informational",
   db: Database
 ): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
 
   const groupColumn =
     group === "narrative_shaping"
@@ -96,7 +97,7 @@ export async function incrementPosted(
   accountId: string,
   db: Database
 ): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
 
   await db
     .update(dailyBudgets)
@@ -117,7 +118,7 @@ export async function decrementPending(
   accountId: string,
   db: Database
 ): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
 
   await db
     .update(dailyBudgets)

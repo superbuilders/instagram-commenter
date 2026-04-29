@@ -1,6 +1,7 @@
 import { eq, and, gte, lte, sql, count, desc } from "drizzle-orm";
 import { comments, replies, dailyBudgets, evalResults, commentPipelineEvents } from "@instagram-commenter/core/db";
 import { postMessage, buildDigestMessage } from "@instagram-commenter/core/slack";
+import { addDaysToLocalDateString, getLocalDateRangeUtc, getLocalDateString } from "@instagram-commenter/core/time";
 import { createCronHandler, log } from "./lib/handler.js";
 import { getSlackBotToken, getSlackChannelId } from "./lib/secrets.js";
 
@@ -8,12 +9,8 @@ export const handler = createCronHandler("slack-digest", async (db) => {
   const slackToken = getSlackBotToken();
   const channelId = getSlackChannelId();
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const dateStr = yesterday.toISOString().split("T")[0];
-
-  const startOfDay = new Date(`${dateStr}T00:00:00Z`);
-  const endOfDay = new Date(`${dateStr}T23:59:59Z`);
+  const dateStr = addDaysToLocalDateString(getLocalDateString(), -1);
+  const { start: startOfDay, end: endOfDay } = getLocalDateRangeUtc(dateStr);
 
   // Get budget stats
   const budgets = await db

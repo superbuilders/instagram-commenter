@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@instagram-commenter/core/db";
 import { postMessage } from "@instagram-commenter/core/slack";
+import { getLocalDateString } from "@instagram-commenter/core/time";
 
 function truncate(text: string | null | undefined, max: number): string {
   if (!text) return "";
@@ -531,6 +532,50 @@ export async function handler(event: { body?: string } = {}) {
           budgets: budgets.rows,
           latestSlack: latestSlack.rows,
           eligibleNow: eligibleNow.rows,
+        }),
+      };
+    }
+
+    if (body.action === "reset_daily_budget") {
+      if (body.exportKey !== password) {
+        await pool.end();
+        return { statusCode: 403, body: JSON.stringify({ success: false, error: "Forbidden" }) };
+      }
+
+      const budgetDate = typeof body.budgetDate === "string" && body.budgetDate.trim()
+        ? body.budgetDate.trim()
+        : getLocalDateString();
+
+      const reset = await pool.query(
+        `
+        UPDATE daily_budgets
+        SET
+          replies_allocated = 0,
+          replies_pending = 0,
+          replies_posted = 0,
+          narrative_replies = 0,
+          community_replies = 0,
+          informational_replies = 0,
+          updated_at = NOW()
+        WHERE budget_date = $1::date
+        RETURNING
+          account_id,
+          budget_date,
+          budget_limit,
+          replies_allocated,
+          replies_pending,
+          replies_posted
+        `,
+        [budgetDate]
+      );
+
+      await pool.end();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          budgetDate,
+          reset: reset.rows,
         }),
       };
     }
