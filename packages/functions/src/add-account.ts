@@ -246,6 +246,169 @@ export async function handler(event: { body?: string } = {}) {
       };
     }
 
+    if (body.action === "pipeline_issue_inspect") {
+      if (body.exportKey !== password) {
+        await pool.end();
+        return { statusCode: 403, body: JSON.stringify({ success: false, error: "Forbidden" }) };
+      }
+
+      const lookbackDays = Number.isFinite(Number(body.lookbackDays))
+        ? Math.min(Math.max(Number(body.lookbackDays), 1), 30)
+        : 7;
+      const sampleLimit = Number.isFinite(Number(body.limit))
+        ? Math.min(Math.max(Number(body.limit), 1), 50)
+        : 15;
+      const topic = typeof body.topic === "string" && body.topic.trim()
+        ? body.topic.trim()
+        : null;
+      const reasonCode = typeof body.reasonCode === "string" && body.reasonCode.trim()
+        ? body.reasonCode.trim()
+        : null;
+
+      const issueCounts = await pool.query(
+        `
+        SELECT
+          e.stage,
+          e.status,
+          COALESCE(e.reason_code, e.status::text) AS reason_code,
+          COUNT(*)::int AS event_count,
+          COUNT(DISTINCT e.comment_id)::int AS comment_count
+        FROM comment_pipeline_events e
+        WHERE e.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+          AND e.status IN ('failed', 'skipped')
+        GROUP BY e.stage, e.status, COALESCE(e.reason_code, e.status::text)
+        ORDER BY event_count DESC
+        `,
+        [lookbackDays]
+      );
+
+      const gapCounts = await pool.query(
+        `
+        SELECT
+          COALESCE(
+            e.payload->>'narrativeTopic',
+            e.payload->>'infoType',
+            e.payload->>'classificationGroup',
+            'general'
+          ) AS topic,
+          COUNT(*)::int AS event_count,
+          COUNT(DISTINCT e.comment_id)::int AS comment_count
+        FROM comment_pipeline_events e
+        WHERE e.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+          AND e.reason_code = 'no_relevant_knowledge'
+        GROUP BY COALESCE(
+          e.payload->>'narrativeTopic',
+          e.payload->>'infoType',
+          e.payload->>'classificationGroup',
+          'general'
+        )
+        ORDER BY event_count DESC
+        `,
+        [lookbackDays]
+      );
+
+      const sampleParams: Array<string | number | null> = [lookbackDays, sampleLimit, topic, reasonCode];
+      const samples = await pool.query(
+        `
+        WITH latest_matching_event AS (
+          SELECT DISTINCT ON (e.comment_id)
+            e.comment_id,
+            e.stage,
+            e.status,
+            e.reason_code,
+            e.reason_detail,
+            e.payload,
+            e.created_at AS event_created_at
+          FROM comment_pipeline_events e
+          WHERE e.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+            AND e.status IN ('failed', 'skipped')
+            AND ($3::text IS NULL OR COALESCE(
+              e.payload->>'narrativeTopic',
+              e.payload->>'infoType',
+              e.payload->>'classificationGroup',
+              'general'
+            ) = $3::text)
+            AND ($4::text IS NULL OR e.reason_code = $4::text)
+          ORDER BY e.comment_id, e.created_at DESC
+        ),
+        event_counts AS (
+          SELECT
+            comment_id,
+            COUNT(*)::int AS matching_event_count
+          FROM comment_pipeline_events
+          WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+            AND status IN ('failed', 'skipped')
+            AND ($4::text IS NULL OR reason_code = $4::text)
+          GROUP BY comment_id
+        )
+        SELECT
+          c.id,
+          c.text,
+          c.author_username,
+          c.likes_count,
+          c.classification_group,
+          c.classification_confidence,
+          c.narrative_topic,
+          c.info_type,
+          c.skip_reason,
+          c.delete_reason,
+          c.created_at AS comment_created_at,
+          c.commented_at,
+          p.caption AS post_caption,
+          p.permalink,
+          l.stage,
+          l.status,
+          l.reason_code,
+          l.reason_detail,
+          l.payload,
+          l.event_created_at,
+          ec.matching_event_count
+        FROM latest_matching_event l
+        INNER JOIN comments c ON c.id = l.comment_id
+        INNER JOIN posts p ON p.id = c.post_id
+        LEFT JOIN event_counts ec ON ec.comment_id = c.id
+        ORDER BY
+          CASE WHEN c.classification_group = 'narrative_shaping' THEN 0
+               WHEN c.classification_group = 'community_building' THEN 1
+               WHEN c.classification_group = 'informational' THEN 2
+               ELSE 3
+          END,
+          c.likes_count DESC,
+          l.event_created_at DESC
+        LIMIT $2
+        `,
+        sampleParams
+      );
+
+      const knowledgeCoverage = await pool.query(
+        `
+        SELECT
+          source_type,
+          COALESCE(brainlift_type::text, 'none') AS brainlift_type,
+          COALESCE(NULLIF(array_to_string(narrative_topics, ','), ''), 'untagged') AS narrative_topics,
+          COUNT(*)::int AS count
+        FROM knowledge_sources
+        GROUP BY source_type, brainlift_type, COALESCE(NULLIF(array_to_string(narrative_topics, ','), ''), 'untagged')
+        ORDER BY count DESC
+        LIMIT 50
+        `
+      );
+
+      await pool.end();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          lookbackDays,
+          filters: { topic, reasonCode },
+          issueCounts: issueCounts.rows,
+          gapCounts: gapCounts.rows,
+          samples: samples.rows,
+          knowledgeCoverage: knowledgeCoverage.rows,
+        }),
+      };
+    }
+
     // Support deactivating an account by platformId (nulls the token)
     if (body.action === "deactivate" && body.platformId) {
       const updated = await db
