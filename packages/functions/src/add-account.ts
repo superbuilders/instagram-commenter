@@ -409,6 +409,132 @@ export async function handler(event: { body?: string } = {}) {
       };
     }
 
+    if (body.action === "pipeline_status") {
+      if (body.exportKey !== password) {
+        await pool.end();
+        return { statusCode: 403, body: JSON.stringify({ success: false, error: "Forbidden" }) };
+      }
+
+      const lookbackHours = Number.isFinite(Number(body.lookbackHours))
+        ? Math.min(Math.max(Number(body.lookbackHours), 1), 168)
+        : 24;
+
+      const summary = await pool.query(
+        `
+        SELECT
+          COUNT(*) FILTER (WHERE c.created_at >= NOW() - ($1::int * INTERVAL '1 hour'))::int AS comments_ingested,
+          COUNT(*) FILTER (WHERE c.created_at >= NOW() - ($1::int * INTERVAL '1 hour') AND c.classification_group IS NULL)::int AS unclassified,
+          COUNT(*) FILTER (WHERE c.created_at >= NOW() - ($1::int * INTERVAL '1 hour') AND c.classification_group IN ('narrative_shaping', 'community_building', 'informational'))::int AS actionable,
+          COUNT(*) FILTER (WHERE c.created_at >= NOW() - ($1::int * INTERVAL '1 hour') AND c.classification_group = 'skip')::int AS skipped,
+          COUNT(*) FILTER (WHERE c.created_at >= NOW() - ($1::int * INTERVAL '1 hour') AND c.classification_group = 'delete')::int AS delete_candidates
+        FROM comments c
+        `,
+        [lookbackHours]
+      );
+
+      const eventSummary = await pool.query(
+        `
+        SELECT
+          stage,
+          status,
+          COALESCE(reason_code, status::text) AS reason_code,
+          COUNT(*)::int AS event_count,
+          COUNT(DISTINCT comment_id)::int AS comment_count
+        FROM comment_pipeline_events
+        WHERE created_at >= NOW() - ($1::int * INTERVAL '1 hour')
+        GROUP BY stage, status, COALESCE(reason_code, status::text)
+        ORDER BY stage, status, event_count DESC
+        `,
+        [lookbackHours]
+      );
+
+      const replySummary = await pool.query(
+        `
+        SELECT
+          approval_status,
+          COUNT(*)::int AS count,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - ($1::int * INTERVAL '1 hour'))::int AS created_recently,
+          COUNT(*) FILTER (WHERE slack_message_ts IS NOT NULL AND created_at >= NOW() - ($1::int * INTERVAL '1 hour'))::int AS sent_to_slack_recently
+        FROM replies
+        GROUP BY approval_status
+        ORDER BY approval_status
+        `,
+        [lookbackHours]
+      );
+
+      const budgets = await pool.query(
+        `
+        SELECT
+          budget_date,
+          budget_limit,
+          replies_allocated,
+          replies_pending,
+          replies_posted,
+          narrative_replies,
+          community_replies,
+          informational_replies
+        FROM daily_budgets
+        ORDER BY budget_date DESC
+        LIMIT 3
+        `
+      );
+
+      const latestSlack = await pool.query(
+        `
+        SELECT
+          r.id AS reply_id,
+          r.approval_status,
+          r.created_at,
+          r.slack_message_ts,
+          c.classification_group,
+          c.narrative_topic,
+          c.info_type,
+          c.likes_count,
+          c.author_username,
+          c.text
+        FROM replies r
+        INNER JOIN comments c ON c.id = r.comment_id
+        WHERE r.slack_message_ts IS NOT NULL
+        ORDER BY r.created_at DESC
+        LIMIT 15
+        `
+      );
+
+      const eligibleNow = await pool.query(
+        `
+        SELECT
+          c.classification_group,
+          c.narrative_topic,
+          c.info_type,
+          COUNT(*)::int AS count
+        FROM comments c
+        INNER JOIN posts p ON p.id = c.post_id
+        LEFT JOIN replies r ON r.comment_id = c.id
+        WHERE c.classification_group IN ('narrative_shaping', 'community_building', 'informational')
+          AND r.id IS NULL
+          AND c.skip_reason IS NULL
+        GROUP BY c.classification_group, c.narrative_topic, c.info_type
+        ORDER BY count DESC
+        LIMIT 25
+        `
+      );
+
+      await pool.end();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          lookbackHours,
+          summary: summary.rows[0],
+          eventSummary: eventSummary.rows,
+          replySummary: replySummary.rows,
+          budgets: budgets.rows,
+          latestSlack: latestSlack.rows,
+          eligibleNow: eligibleNow.rows,
+        }),
+      };
+    }
+
     // Support deactivating an account by platformId (nulls the token)
     if (body.action === "deactivate" && body.platformId) {
       const updated = await db
