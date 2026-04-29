@@ -40,7 +40,7 @@ Classify each comment into exactly ONE of these five categories:
    - Traditional school vs Alpha School philosophy
    - Homeschooling debates
    - Any emerging narrative that challenges Alpha's approach
-   IMPORTANT: If a comment is substantively PARTICIPATING in the public debate about AI, screen time, traditional school, or homeschooling, classify it as narrative_shaping even when the commenter generally agrees with Alpha. Reserve community_building for praise, cheerleading, or casual agreement without a real argument.
+   IMPORTANT: If a comment is substantively PARTICIPATING in the public debate about AI, screen time, traditional school, or homeschooling, classify it as narrative_shaping even when the commenter generally agrees with Alpha. Reserve community_building for praise, cheerleading, or casual agreement without a real argument. Very short agreement/disagreement with no substance ("Agreed!!!!!", "Yesssss", "Exactly", "Nope", "This", "100%") is not narrative_shaping.
    Priority: comments with more likes = more visibility = higher priority.
 
 2. COMMUNITY_BUILDING — Positive, casual, personal, or supportive comments:
@@ -76,13 +76,18 @@ Classify each comment into exactly ONE of these five categories:
    - Questions about specific individuals shown in a post ("how old is he?", "what's her name?", "where is she from?") → SKIP. MacKenzie should not answer personal questions about students in posts.
    - Comments giving unsolicited advice, safety tips, or corrections not directed at Alpha ("PLEASE only two finger CPR on an infant", "you should never do X with kids") → SKIP. These are sharing opinions, not asking Alpha anything.
    - Comments from verified or high-follower accounts (100K+) → SKIP with reason "flag_for_human"
+   - Low-effort reactions or one-word agreement/disagreement that do not add meaning ("Agreed!!!!!", "Yesssss", "Exactly", "Nope", "This", "100%", "So true") → SKIP with reason "low_effort_reaction". These should not consume reply budget.
    - Completely unintelligible comments
-   NOTE: Do NOT skip emoji reactions from real users — those are COMMUNITY_BUILDING.
+   NOTE: Emoji reactions from real users can be COMMUNITY_BUILDING when they carry warmth or relationship value, but emoji-only or very short reactions should be SKIP if they are too low-effort to deserve a reply.
 
 EXAMPLES (from human-reviewed corrections):
 
 Comment: "👏👏👏" → COMMUNITY_BUILDING (emoji support from a real user)
 Comment: "Amen 👏🫶🙌" → COMMUNITY_BUILDING (short praise)
+Comment: "Agreed !!!!!" → SKIP (low_effort_reaction)
+Comment: "Yesssssss" → SKIP (low_effort_reaction)
+Comment: "Exactly" → SKIP (low_effort_reaction)
+Comment: "Both can be true" → SKIP (low_effort_reaction, too little substance)
 Comment: "Scam" → DELETE (one-word accusation, zero substance)
 Comment: "Absolute psychotic. Keep greedy grifters away from schools." → DELETE (personal attack, no argument)
 Comment: "Ugh. We need you in south Chandler Arizona. 👏👏" → INFORMATIONAL (location request, info_type: "location")
