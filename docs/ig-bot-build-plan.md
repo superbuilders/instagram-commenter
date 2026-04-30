@@ -94,6 +94,324 @@ When reviewing this system, focus on whether the code supports the product loop 
 9. Feedback is stored for future learning.
 10. If posting is enabled, approved replies are posted back to Instagram.
 
+## Current Pre-Jay Decision System
+
+Jay only sees the end of a longer decision pipeline. The important product point is that Slack is the review surface, not the whole bot. The bot already makes several decisions before anything reaches Jay.
+
+Current pre-Jay flow:
+
+```txt
+Instagram post/comment ingestion
+  -> classify comment
+  -> exclude skips and deleted/non-actionable comments
+  -> rank candidates inside the daily budget
+  -> retrieve relevant knowledge and prior examples
+  -> generate a draft reply
+  -> verify factual grounding
+  -> create pending reply
+  -> send Slack card to Jay
+```
+
+What currently happens well:
+
+- Comments are classified before Slack.
+- Low-effort reactions can now be skipped by the classifier.
+- Narrative/informational replies require relevant knowledge before generation.
+- Generated replies go through a verifier before Slack.
+- Jay's approve/edit/reject decision is stored on the reply.
+- Approved, edited, and rejected examples can be stored as response examples.
+
+What is still basic:
+
+- Ranking is mostly classification priority plus comment likes.
+- Confidence shown in Slack is classifier confidence, not a full auto-send readiness score.
+- Rejected examples are stored, but not yet used strongly to suppress similar future comments.
+- Edited replies are stored as positive examples, but not yet used as a formal eval target.
+- There is no explicit `would_auto_send` shadow decision yet.
+- The system does not yet have a promotion gate that says "this version is measurably better than the previous one."
+
+## Human-In-The-Loop Now, Auto-Send Later
+
+The architecture should treat Jay as the current approval policy. That makes auto-send a later policy change, not a rewrite.
+
+Today:
+
+```txt
+approval policy = send every viable generated reply to Slack
+```
+
+Later:
+
+```txt
+approval policy =
+  auto_send if confidence is very high and risk is very low
+  send_to_slack if useful but uncertain
+  skip if low-value, risky, unsupported, or not worth engagement
+```
+
+This means every reply candidate should eventually receive a routing decision:
+
+- `skip`
+- `send_to_slack`
+- `hold_for_review`
+- `would_auto_send`
+- `auto_send`
+
+The system should support these states before auto-send is enabled. In shadow mode, the bot can mark a reply as `would_auto_send` while still sending it to Jay. If Jay approves without edits, that is evidence that the auto-send rule was correct. If Jay edits or rejects, that is evidence the rule is too permissive.
+
+## Confidence And Ranking Should Learn From Jay
+
+The high-confidence ranking should not remain static. It should improve from Jay's behavior.
+
+Jay's actions should update the system like this:
+
+- `approve`: the comment selection, retrieved knowledge, and reply were acceptable. Similar future cases should get a positive boost.
+- `edit`: the comment was worth responding to, but the generated reply was imperfect. Similar future cases should still be surfaced, but generation should learn from the edited text.
+- `reject / should_not_reply`: the comment should probably have been skipped. Similar future comments should get a strong negative routing signal.
+- `reject / unsupported_claim`: the comment may be worth answering, but retrieval or verifier failed. Similar future cases should require stronger knowledge or stay in Slack review.
+- `reject / tone`: the comment may be worth answering, but the draft voice was wrong. Similar future cases should retrieve the rejection as an avoidance example.
+- `ignore/no action`: weaker signal. It may mean Slack overload, stale timing, or low priority. It should not be treated as a hard negative without additional evidence.
+
+The ranking model should eventually combine:
+
+- classification group
+- classifier confidence
+- likes and visibility
+- comment recency
+- author/account importance
+- narrative topic priority
+- knowledge retrieval strength
+- verifier result
+- similarity to approved examples
+- similarity to edited examples
+- similarity to rejected examples
+- low-effort/sarcasm/bait signals
+- topic-level historical approval rate
+- post-level context
+
+The first version does not need a trained ML model. A deterministic score is enough:
+
+```txt
+reply_readiness_score =
+  topic_priority
+  + visibility_score
+  + knowledge_strength
+  + approved_similarity_boost
+  - rejected_similarity_penalty
+  - low_effort_penalty
+  - unsupported_claim_risk
+  - sarcasm_or_bait_penalty
+```
+
+This score should control Slack prioritization first. Later, after shadow testing, it can control auto-send eligibility.
+
+## Auto-Send Readiness Criteria
+
+Auto-send should not be controlled by a single confidence number. It should require a bundle of gates.
+
+A reply can only be considered for auto-send when all of these are true:
+
+- The comment is not low-effort, sarcastic, baiting, hostile, or purely rhetorical.
+- The comment belongs to an allowed auto-send category.
+- The topic has a strong historical approval rate.
+- Similar past examples were approved or lightly edited.
+- Similar rejected examples are below a strict similarity threshold.
+- Retrieval found strong source material when the reply makes factual or Alpha-specific claims.
+- Verification passed.
+- The generated reply contains no unsupported specifics.
+- The reply is short, warm, and does not escalate conflict.
+- Daily and per-post auto-send caps are not exceeded.
+- The operating mode explicitly allows auto-send.
+
+Initial allowed auto-send categories should be narrow. Good candidates:
+
+- simple warm replies to clearly supportive comments
+- factual informational replies with exact approved source material
+- repeated low-risk community replies that Jay has historically approved
+
+Poor initial auto-send categories:
+
+- screen-time debates
+- AI replacing teachers
+- skeptical parent objections
+- sarcasm or dunking
+- anything involving student outcomes, cost, locations, or program promises without fresh source material
+- deletion decisions
+
+## Shadow Auto-Send Phase
+
+Before actual auto-send, add shadow mode.
+
+In shadow mode:
+
+```txt
+bot computes auto-send decision
+bot still sends the reply to Slack
+Slack card shows "Would auto-send: yes/no" and why
+Jay approves/edits/rejects as usual
+system compares Jay's action against the shadow decision
+```
+
+Success metrics:
+
+- `would_auto_send` approval rate
+- `would_auto_send` edit rate
+- `would_auto_send` rejection rate
+- false positive auto-send candidates
+- approval rate by topic
+- approval rate by source type
+- approval rate by similar-feedback cluster
+
+Promotion rule:
+
+```txt
+Do not enable real auto-send until shadow auto-send candidates are approved without edits at a consistently high rate, with zero severe safety misses.
+```
+
+## How The Karpathy Loop Fits
+
+The Karpathy-style loop is the improvement engine around the production bot.
+
+Production loop:
+
+```txt
+comment -> classify -> retrieve -> generate -> verify -> Slack -> Jay decision
+```
+
+Autoresearch loop:
+
+```txt
+Jay decisions -> eval dataset -> try a change -> run eval -> compare metrics -> keep or discard -> deploy
+```
+
+The production bot should keep running conservatively. The autoresearch loop should run offline or in shadow mode against fixed historical examples. It should not blindly mutate production behavior.
+
+The first research programs should be:
+
+1. **Comment Selection Research**
+   - Goal: improve which comments are surfaced to Jay.
+   - Primary metric: higher precision in the daily Slack budget.
+   - Failure metric: missed high-value narrative comments.
+
+2. **Knowledge Retrieval Research**
+   - Goal: retrieve the right Alpha/source material for the comment.
+   - Primary metric: fewer `no_relevant_knowledge` skips for topics where knowledge exists.
+   - Failure metric: more unsupported claims or generic replies.
+
+3. **Reply Quality Research**
+   - Goal: generate replies Jay approves with fewer edits.
+   - Primary metric: higher approve-without-edit rate.
+   - Failure metric: more tone, accuracy, or should-not-reply rejections.
+
+4. **Auto-Send Readiness Research**
+   - Goal: predict which replies Jay would approve without edits.
+   - Primary metric: shadow auto-send precision.
+   - Failure metric: any rejected `would_auto_send` reply that would have been risky in public.
+
+## Concrete Build Plan For The Learning System
+
+### Step 1: Build The Feedback Dataset
+
+Export a durable dataset that joins:
+
+- comment text
+- post caption
+- author username
+- likes
+- classification group
+- narrative topic
+- retrieved knowledge IDs and similarity scores
+- generated reply
+- verifier result
+- Slack outcome
+- edit text, if edited
+- reject reason and notes, if rejected
+- timestamps
+
+This dataset becomes the source for evals and autoresearch.
+
+### Step 2: Add Negative Feedback Retrieval
+
+Change retrieval so each candidate gets:
+
+- similar approved examples
+- similar edited examples
+- similar rejected examples
+
+Rejected examples must be available before generation so routing can skip comments that look like prior `should_not_reply` cases.
+
+### Step 3: Add A Reply Readiness Score
+
+Introduce a single structured scoring object:
+
+```ts
+type ReplyReadiness = {
+  decision: "skip" | "send_to_slack" | "would_auto_send" | "auto_send";
+  score: number;
+  reasons: string[];
+  risks: string[];
+  evidence: {
+    approvedExampleIds: string[];
+    rejectedExampleIds: string[];
+    knowledgeSourceIds: string[];
+  };
+};
+```
+
+At first this should be rule-based and logged only. Then it should control Slack ranking. Only later should it control auto-send.
+
+### Step 4: Add Shadow Auto-Send Labels To Slack
+
+Slack cards should eventually show:
+
+- why this comment was selected
+- strongest knowledge source
+- similar approved example, if any
+- similar rejected warning, if any
+- `would_auto_send` decision and reasons
+
+This makes Jay's review more informative and creates better data.
+
+### Step 5: Add Offline Evals
+
+Create evals for:
+
+- comment routing: should reply vs should skip
+- topic tagging
+- knowledge retrieval hit rate
+- reply quality
+- verifier correctness
+- auto-send readiness
+
+The evals should run against frozen historical examples before deployment.
+
+### Step 6: Add The Autoresearch Program
+
+Create a `program.md` for one narrow research question at a time. The first one should focus on comment selection quality because bad selection wastes Jay's attention and makes every downstream metric worse.
+
+The loop:
+
+```txt
+read program.md
+modify classifier/ranker/retrieval prompt or config
+run eval command
+compare score to baseline
+keep only if improved
+log experiment
+```
+
+### Step 7: Promote In Stages
+
+Promotion path:
+
+1. Human-review only.
+2. Shadow scoring.
+3. Shadow auto-send.
+4. Limited auto-send for safest categories.
+5. Expanded auto-send after topic-specific evidence.
+
+At every stage, Jay's feedback remains useful. Even after auto-send is enabled, sampled auto-sent replies should still be reviewed so the system does not drift.
+
 ## Slack Feedback: What Gets Saved
 
 When a Slack reviewer rejects a reply, the modal captures:
@@ -338,21 +656,38 @@ Track separate counters:
 
 Use `sent_to_slack` as the awareness metric.
 
-### 6. Posting Mode Is Ambiguous
+### 6. Posting Mode Must Match Jay's Mental Model
 
-Approved replies can be posted if the posting cron is enabled, but posting is separately controlled.
+Approving a Slack reply does not directly call Instagram. The Slack action updates the reply row to `approvalStatus = approved`. A separate `PostReplies` cron looks for approved, unposted replies and posts them to Instagram.
+
+That means current behavior depends on whether `ENABLE_POST_REPLY_CRON` was enabled at deploy time:
+
+- If `PostReplies` is disabled, Jay clicking approve only stores approval and training feedback. Nothing is posted.
+- If `PostReplies` is enabled, Jay clicking approve queues the reply for the posting worker, which can post it on the next cron run.
+
+This is human-approved posting, not auto-send. Auto-send would be different: the system would mark a reply `auto` or otherwise eligible for posting without Jay clicking approve.
+
+The desired product behavior is:
+
+```txt
+Jay clicks Approve -> reply is approved -> reply is posted to Instagram automatically
+```
+
+In other words, Jay's approval should mean "approved to publish," not merely "approved as training feedback."
 
 Impact:
 
 - A reviewer may think approval posts to IG, while production may only mark the reply approved.
 - Or the opposite: enabling the cron could start posting approved replies.
+- If the posting cron is enabled after a period of review-only operation, old approved-but-unposted replies may post unless the backlog is cleared or filtered.
 
 Fix:
 
-- Make operating mode explicit in Slack:
-  - `Review only`
-  - `Approve and post`
+- Treat `Approve queues post` as the normal operating mode.
+- Make this mode explicit in Slack so Jay knows approval publishes the reply.
 - Add this mode to the daily digest.
+- Before enabling `PostReplies`, inspect approved-but-unposted backlog and either post only newly approved replies or manually clear old ones.
+- Keep `Auto-send enabled` as a future mode only, manually enabled after shadow testing.
 
 ### 7. Verifier Fails Open
 
