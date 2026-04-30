@@ -1,11 +1,29 @@
 import { eq, and, gte, lte, sql, count, desc } from "drizzle-orm";
 import { comments, replies, dailyBudgets, evalResults, commentPipelineEvents } from "@instagram-commenter/core/db";
 import { postMessage, buildDigestMessage } from "@instagram-commenter/core/slack";
-import { addDaysToLocalDateString, getLocalDateRangeUtc, getLocalDateString } from "@instagram-commenter/core/time";
+import {
+  APP_TIME_ZONE,
+  addDaysToLocalDateString,
+  getLocalDateRangeUtc,
+  getLocalDateString,
+  getLocalHour,
+} from "@instagram-commenter/core/time";
 import { createCronHandler, log } from "./lib/handler.js";
 import { getSlackBotToken, getSlackChannelId } from "./lib/secrets.js";
 
+const DIGEST_LOCAL_HOUR = 9;
+
 export const handler = createCronHandler("slack-digest", async (db) => {
+  const localHour = getLocalHour();
+  if (localHour !== DIGEST_LOCAL_HOUR) {
+    log("info", "Skipping digest outside scheduled local hour", {
+      timeZone: APP_TIME_ZONE,
+      localHour,
+      scheduledLocalHour: DIGEST_LOCAL_HOUR,
+    });
+    return;
+  }
+
   const slackToken = getSlackBotToken();
   const channelId = getSlackChannelId();
 
@@ -176,6 +194,7 @@ export const handler = createCronHandler("slack-digest", async (db) => {
   // Build and send digest
   const msg = buildDigestMessage({
     date: dateStr,
+    timeZone: APP_TIME_ZONE,
     totalComments,
     classifications,
     repliesPosted: totalPosted,

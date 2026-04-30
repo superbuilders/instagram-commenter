@@ -9,6 +9,7 @@ import {
   CLASSIFIER_PROMPT_VERSION,
 } from "@instagram-commenter/core/ai";
 import { postMessage } from "@instagram-commenter/core/slack";
+import { APP_TIME_ZONE, getLocalDateString, getLocalHour, getLocalWeekday } from "@instagram-commenter/core/time";
 import { createCronHandler, log } from "./lib/handler.js";
 import { getAnthropicKey, getSlackBotToken, getSlackChannelId } from "./lib/secrets.js";
 
@@ -30,6 +31,8 @@ const CATEGORIES = [
   "delete",
   "skip",
 ];
+const EVAL_LOCAL_HOUR = 9;
+const EVAL_LOCAL_WEEKDAY = "Mon";
 
 function normalizeGoldLabel(label?: string | null): string | null {
   if (!label) return null;
@@ -40,6 +43,19 @@ function normalizeGoldLabel(label?: string | null): string | null {
 }
 
 export const handler = createCronHandler("run-eval", async (db) => {
+  const localHour = getLocalHour();
+  const localWeekday = getLocalWeekday();
+  if (localWeekday !== EVAL_LOCAL_WEEKDAY || localHour !== EVAL_LOCAL_HOUR) {
+    log("info", "Skipping eval outside scheduled local time", {
+      timeZone: APP_TIME_ZONE,
+      localWeekday,
+      localHour,
+      scheduledLocalWeekday: EVAL_LOCAL_WEEKDAY,
+      scheduledLocalHour: EVAL_LOCAL_HOUR,
+    });
+    return;
+  }
+
   const anthropicKey = getAnthropicKey();
   const slackToken = getSlackBotToken();
   const channelId = getSlackChannelId();
@@ -122,7 +138,7 @@ export const handler = createCronHandler("run-eval", async (db) => {
   }
 
   const accuracy = total > 0 ? correct / total : 0;
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
 
   // Compute per-category metrics
   const categoryMetrics: Record<string, { precision: number; recall: number; f1: number }> = {};
@@ -213,7 +229,7 @@ export const handler = createCronHandler("run-eval", async (db) => {
   const blocks: unknown[] = [
     {
       type: "header",
-      text: { type: "plain_text", text: `${icon} Weekly Eval — ${today}` },
+      text: { type: "plain_text", text: `${icon} Weekly Eval — ${today} (${APP_TIME_ZONE})` },
     },
     {
       type: "section",
@@ -242,5 +258,5 @@ export const handler = createCronHandler("run-eval", async (db) => {
     });
   }
 
-  await postMessage(channelId, blocks, `Weekly Eval — ${accuracyPct}% accuracy`, slackToken);
+  await postMessage(channelId, blocks, `Weekly Eval — ${today} (${APP_TIME_ZONE}) — ${accuracyPct}% accuracy`, slackToken);
 });

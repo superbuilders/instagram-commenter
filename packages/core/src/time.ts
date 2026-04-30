@@ -1,6 +1,6 @@
 export const APP_TIME_ZONE = "America/Chicago";
 
-function getZonedParts(date: Date, timeZone = APP_TIME_ZONE) {
+export function getLocalDateTimeParts(date = new Date(), timeZone = APP_TIME_ZONE) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
@@ -31,7 +31,7 @@ function pad2(value: number): string {
 }
 
 export function getLocalDateString(date = new Date(), timeZone = APP_TIME_ZONE): string {
-  const parts = getZonedParts(date, timeZone);
+  const parts = getLocalDateTimeParts(date, timeZone);
   return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
@@ -42,7 +42,7 @@ export function addDaysToLocalDateString(dateStr: string, days: number): string 
 }
 
 function getTimeZoneOffsetMs(date: Date, timeZone = APP_TIME_ZONE): number {
-  const parts = getZonedParts(date, timeZone);
+  const parts = getLocalDateTimeParts(date, timeZone);
   const zonedAsUtc = Date.UTC(
     parts.year,
     parts.month - 1,
@@ -52,6 +52,17 @@ function getTimeZoneOffsetMs(date: Date, timeZone = APP_TIME_ZONE): number {
     parts.second
   );
   return zonedAsUtc - date.getTime();
+}
+
+export function getLocalHour(date = new Date(), timeZone = APP_TIME_ZONE): number {
+  return getLocalDateTimeParts(date, timeZone).hour;
+}
+
+export function getLocalWeekday(date = new Date(), timeZone = APP_TIME_ZONE): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+  }).format(date);
 }
 
 export function zonedTimeToUtc(

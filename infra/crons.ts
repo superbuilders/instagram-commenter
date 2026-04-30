@@ -75,7 +75,9 @@ export const deleteComments = new sst.aws.Cron("DeleteComments", {
 
 export const slackDigest = new sst.aws.Cron("SlackDigest", {
   enabled: cronsEnabled,
-  schedule: "cron(0 14 * * ? *)",
+  // EventBridge rules evaluate cron expressions in UTC. Run hourly and let the
+  // handler post only at the configured America/Chicago local hour.
+  schedule: "cron(0 * * * ? *)",
   function: cronFn("packages/functions/src/slack-digest.handler", "60 seconds", [slackBotToken, slackChannelId]),
 });
 
@@ -87,7 +89,9 @@ export const refreshToken = new sst.aws.Cron("RefreshToken", {
 
 export const weeklyEval = new sst.aws.Cron("WeeklyEval", {
   enabled: weeklyEvalEnabled,
-  schedule: "cron(0 15 ? * MON *)",
+  // EventBridge rules evaluate cron expressions in UTC. Run hourly and let the
+  // handler post only at the configured America/Chicago local time.
+  schedule: "cron(0 * * * ? *)",
   function: {
     handler: "packages/functions/src/run-eval-cron.handler",
     timeout: "900 seconds",

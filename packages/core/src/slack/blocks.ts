@@ -307,6 +307,7 @@ export function buildDeleteApprovalMessage(
 
 export function buildDigestMessage(stats: {
   date: string;
+  timeZone?: string;
   totalComments: number;
   classifications: Record<string, number>;
   repliesPosted: number;
@@ -324,7 +325,10 @@ export function buildDigestMessage(stats: {
   const blocks: unknown[] = [
     {
       type: "header",
-      text: { type: "plain_text", text: `Daily Digest — ${stats.date}` },
+      text: {
+        type: "plain_text",
+        text: `Daily Digest — ${stats.date}${stats.timeZone ? ` (${stats.timeZone})` : ""}`,
+      },
     },
     {
       type: "section",
@@ -422,5 +426,8 @@ export function buildDigestMessage(stats: {
     });
   }
 
-  return { text: `Daily Digest — ${stats.date}`, blocks };
+  return {
+    text: `Daily Digest — ${stats.date}${stats.timeZone ? ` (${stats.timeZone})` : ""}`,
+    blocks,
+  };
 }
