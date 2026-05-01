@@ -6,6 +6,7 @@ export {
 } from "./client.js";
 export {
   buildApprovalMessage,
+  buildHandledReplyMessage,
   buildEditModal,
   buildRejectModal,
   buildDeleteApprovalMessage,

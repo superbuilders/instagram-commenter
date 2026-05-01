@@ -10,6 +10,7 @@ import { deleteComment } from "@instagram-commenter/core/instagram";
 import { decrementPending } from "@instagram-commenter/core/scheduling";
 import {
   buildEditModal,
+  buildHandledReplyMessage,
   buildRejectModal,
   verifySignature,
   updateMessage,
@@ -78,6 +79,40 @@ async function getAccountForComment(db: any, commentId: string) {
     .where(eq(accounts.id, post.accountId));
 
   return { comment, account };
+}
+
+async function getHandledReplyContext(db: any, replyId: string) {
+  const [row] = await db
+    .select({
+      replyId: replies.id,
+      originalText: replies.originalText,
+      editedText: replies.editedText,
+      commentId: comments.id,
+      commentText: comments.text,
+      authorUsername: comments.authorUsername,
+      likesCount: comments.likesCount,
+      postCaption: posts.caption,
+      postPermalink: posts.permalink,
+    })
+    .from(replies)
+    .innerJoin(comments, eq(replies.commentId, comments.id))
+    .innerJoin(posts, eq(comments.postId, posts.id))
+    .where(eq(replies.id, replyId));
+
+  if (!row) return null;
+
+  return {
+    originalReply: row.originalText,
+    finalReply: row.editedText ?? row.originalText,
+    comment: {
+      id: row.commentId,
+      text: row.commentText,
+      authorUsername: row.authorUsername ?? "unknown",
+      likesCount: row.likesCount,
+      postCaption: row.postCaption ?? "",
+      postPermalink: row.postPermalink ?? undefined,
+    },
+  };
 }
 
 export const handler = createHttpHandler("slack-approval", async (db, body, headers) => {
@@ -150,19 +185,27 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         });
       }
 
+      const handledContext = await getHandledReplyContext(db, data.replyId);
+      const handledMessage = buildHandledReplyMessage({
+        outcome: "approved",
+        reviewer: payload.user.username,
+        ...(handledContext ?? {
+          originalReply: reply?.originalText ?? "Approved reply unavailable",
+          comment: {
+            id: data.commentId,
+            text: comment?.text ?? "Original comment unavailable",
+            authorUsername: comment?.authorUsername ?? "unknown",
+            likesCount: comment?.likesCount ?? 0,
+            postCaption: "",
+          },
+        }),
+      });
+
       await updateMessage(
         channelId,
         payload.message.ts,
-        [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `✅ *Approved* by @${payload.user.username}`,
-            },
-          },
-        ],
-        "Reply approved",
+        handledMessage.blocks,
+        handledMessage.text,
         slackToken
       );
 
@@ -400,18 +443,27 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         .where(eq(replies.id, replyId));
 
       if (metadata.messageTs) {
+        const handledContext = await getHandledReplyContext(db, replyId);
         await updateMessage(
           metadata.channelId ?? channelId,
           metadata.messageTs,
-          [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `✏️ *Edited and approved* by @${payload.user.username}\nReason: ${editCategory.replace(/_/g, " ")}${editNotes ? `\nNotes: ${editNotes}` : ""}`,
+          buildHandledReplyMessage({
+            outcome: "edited",
+            reviewer: payload.user.username,
+            reason: editCategory,
+            notes: editNotes,
+            ...(handledContext ?? {
+              originalReply: editedText,
+              finalReply: editedText,
+              comment: {
+                id: metadata.commentId ?? "",
+                text: "Original comment unavailable",
+                authorUsername: "unknown",
+                likesCount: 0,
+                postCaption: "",
               },
-            },
-          ],
+            }),
+          }).blocks,
           "Reply edited and approved",
           slackToken
         );
@@ -484,18 +536,26 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
       }
 
       if (metadata.messageTs) {
+        const handledContext = await getHandledReplyContext(db, replyId);
         await updateMessage(
           metadata.channelId ?? channelId,
           metadata.messageTs,
-          [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `❌ *Rejected* by @${payload.user.username}\nReason: ${rejectReason.replace(/_/g, " ")}${rejectNotes ? `\nNotes: ${rejectNotes}` : ""}`,
+          buildHandledReplyMessage({
+            outcome: "rejected",
+            reviewer: payload.user.username,
+            reason: rejectReason,
+            notes: rejectNotes,
+            ...(handledContext ?? {
+              originalReply: "Rejected draft unavailable",
+              comment: {
+                id: metadata.commentId ?? "",
+                text: "Original comment unavailable",
+                authorUsername: "unknown",
+                likesCount: 0,
+                postCaption: "",
               },
-            },
-          ],
+            }),
+          }).blocks,
           "Reply rejected",
           slackToken
         );

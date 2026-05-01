@@ -27,6 +27,21 @@ interface ReplyContext {
   narrativeTopic?: string;
 }
 
+interface HandledReplyContext {
+  outcome: "approved" | "edited" | "rejected";
+  reviewer: string;
+  comment: CommentContext;
+  originalReply: string;
+  finalReply?: string;
+  reason?: string;
+  notes?: string | null;
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength - 1)}…`;
+}
+
 export function buildApprovalMessage(
   comment: CommentContext,
   reply: ReplyContext,
@@ -123,6 +138,122 @@ export function buildApprovalMessage(
               replyId: reply.id,
               commentId: comment.id,
             }),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function buildHandledReplyMessage(context: HandledReplyContext) {
+  const outcomeConfig = {
+    approved: {
+      header: "HANDLED - Approved",
+      summary: `Approved by @${context.reviewer}. No further review needed.`,
+      text: "Reply approved",
+    },
+    edited: {
+      header: "HANDLED - Edited and approved",
+      summary: `Edited and approved by @${context.reviewer}. No further review needed.`,
+      text: "Reply edited and approved",
+    },
+    rejected: {
+      header: "HANDLED - Rejected",
+      summary: `Rejected by @${context.reviewer}. No reply will be sent.`,
+      text: "Reply rejected",
+    },
+  }[context.outcome];
+
+  const finalReply = context.finalReply ?? context.originalReply;
+  const detailLines = [
+    outcomeConfig.summary,
+    context.reason ? `*Reason:* ${context.reason.replace(/_/g, " ")}` : null,
+    context.notes ? `*Notes:* ${context.notes}` : null,
+  ].filter(Boolean);
+
+  return {
+    text: outcomeConfig.text,
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: outcomeConfig.header,
+        },
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: detailLines.join("\n"),
+        },
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Original comment by @${context.comment.authorUsername}* (${context.comment.likesCount} likes):\n>${truncate(context.comment.text, 500)}`,
+        },
+      },
+      ...(context.comment.postCaption
+        ? [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Post caption:*\n${truncate(context.comment.postCaption, 200)}`,
+              },
+            },
+          ]
+        : []),
+      ...(context.comment.postPermalink
+        ? [
+            {
+              type: "context",
+              elements: [
+                { type: "mrkdwn", text: `<${context.comment.postPermalink}|View post on Instagram>` },
+              ],
+            },
+          ]
+        : []),
+      { type: "divider" },
+      ...(context.outcome === "edited"
+        ? [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Original draft:*\n${context.originalReply}`,
+              },
+            },
+          ]
+        : []),
+      ...(context.outcome !== "rejected"
+        ? [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Final reply:*\n${finalReply}`,
+              },
+            },
+          ]
+        : [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Rejected draft:*\n${context.originalReply}`,
+              },
+            },
+          ]),
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: "Status: handled. Decision buttons removed.",
           },
         ],
       },
