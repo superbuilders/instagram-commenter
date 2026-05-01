@@ -15,6 +15,7 @@ import {
   allocateReplies,
 } from "@instagram-commenter/core/scheduling";
 import { postMessage, buildApprovalMessage } from "@instagram-commenter/core/slack";
+import { APP_TIME_ZONE, getLocalHour } from "@instagram-commenter/core/time";
 import { createCronHandler, log } from "./lib/handler.js";
 import { getAnthropicKey, getOpenaiKey, getSlackBotToken, getSlackChannelId } from "./lib/secrets.js";
 
@@ -25,8 +26,24 @@ const ACTIONABLE_GROUPS = [
 ] as const;
 
 const CANDIDATE_SCAN_LIMIT = 500;
+const REVIEW_WINDOW_START_LOCAL_HOUR = 7;
+const REVIEW_WINDOW_END_LOCAL_HOUR = 19;
 
 export const handler = createCronHandler("allocate-replies", async (db) => {
+  const localHour = getLocalHour();
+  if (
+    localHour < REVIEW_WINDOW_START_LOCAL_HOUR ||
+    localHour >= REVIEW_WINDOW_END_LOCAL_HOUR
+  ) {
+    log("info", "Skipping reply allocation outside review window", {
+      timeZone: APP_TIME_ZONE,
+      localHour,
+      reviewWindowStartLocalHour: REVIEW_WINDOW_START_LOCAL_HOUR,
+      reviewWindowEndLocalHour: REVIEW_WINDOW_END_LOCAL_HOUR,
+    });
+    return;
+  }
+
   const anthropicKey = getAnthropicKey();
   const openaiKey = getOpenaiKey();
   const slackToken = getSlackBotToken();

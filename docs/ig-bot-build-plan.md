@@ -116,6 +116,7 @@ What currently happens well:
 
 - Comments are classified before Slack.
 - Low-effort reactions can now be skipped by the classifier.
+- Comment ingestion and classification can run continuously, while Slack reply allocation is limited to Jay's Central-time review window.
 - Narrative/informational replies require relevant knowledge before generation.
 - Generated replies go through a verifier before Slack.
 - Jay's approve/edit/reject decision is stored on the reply.
@@ -129,6 +130,37 @@ What is still basic:
 - Edited replies are stored as positive examples, but not yet used as a formal eval target.
 - There is no explicit `would_auto_send` shadow decision yet.
 - The system does not yet have a promotion gate that says "this version is measurably better than the previous one."
+
+## Jay's Daily Slack Workflow
+
+The desired operating rhythm is:
+
+```txt
+Overnight:
+  ingest comments
+  classify comments
+  keep building the candidate queue
+
+7 AM-7 PM America/Chicago:
+  allocate reply candidates
+  generate and verify replies
+  send Slack review cards as the day goes along
+
+After 7 PM America/Chicago:
+  keep ingesting/classifying
+  stop sending new review cards until the next morning
+```
+
+This lets Jay wake up and see what came in, then continue receiving relevant comments during the day without the system creating overnight Slack noise.
+
+When Jay takes action in Slack, the original Slack card should be updated so it is clear the item has already been handled:
+
+- Approved cards should show who approved them.
+- Edited cards should show who edited/approved them and the edit reason.
+- Rejected cards should show who rejected them, the reason, and notes.
+- Action buttons should no longer invite duplicate action after review.
+
+The current implementation updates the Slack message after approve, edit, and reject. A later improvement should preserve more of the original comment/reply context in the updated card instead of replacing it with a compact status-only message.
 
 ## Human-In-The-Loop Now, Auto-Send Later
 
