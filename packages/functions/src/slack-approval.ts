@@ -40,8 +40,15 @@ type SlackPayload = {
     private_metadata: string;
     state: { values: Record<string, Record<string, SlackStateValue>> };
   };
-  user: { id: string; username: string };
+  user: { id: string; username?: string; name?: string };
 };
+
+function getReviewer(payload: SlackPayload): { display: string; storageValue: string } {
+  return {
+    display: `<@${payload.user.id}>`,
+    storageValue: payload.user.username ?? payload.user.name ?? payload.user.id,
+  };
+}
 
 function readSelectedValue(
   state: Record<string, Record<string, SlackStateValue>>,
@@ -133,6 +140,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
   const slackToken = getSlackBotToken();
   const openaiKey = getOpenaiKey();
   const channelId = getSlackChannelId();
+  const reviewer = getReviewer(payload);
 
   if (payload.type === "block_actions" && payload.actions) {
     const action = payload.actions[0];
@@ -152,7 +160,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         .update(replies)
         .set({
           approvalStatus: "approved",
-          approvedBy: payload.user.username,
+          approvedBy: reviewer.storageValue,
           approvedAt: new Date(),
           reviewOutcomeReason: "approved",
           reviewOutcomeCategory: "operator",
@@ -181,14 +189,17 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           stage: "slack_review",
           status: "succeeded",
           reasonCode: "slack_approved",
-          payload: { reviewer: payload.user.username },
+          payload: {
+            reviewer: reviewer.storageValue,
+            reviewerSlackUserId: payload.user.id,
+          },
         });
       }
 
       const handledContext = await getHandledReplyContext(db, data.replyId);
       const handledMessage = buildHandledReplyMessage({
         outcome: "approved",
-        reviewer: payload.user.username,
+        reviewer: reviewer.display,
         ...(handledContext ?? {
           originalReply: reply?.originalText ?? "Approved reply unavailable",
           comment: {
@@ -211,7 +222,8 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
 
       log("info", "Reply approved", {
         replyId: data.replyId,
-        by: payload.user.username,
+        by: reviewer.storageValue,
+        slackUserId: payload.user.id,
       });
     }
 
@@ -268,7 +280,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           .update(comments)
           .set({
             deletedAt: new Date(),
-            deletedBy: `slack:${payload.user.username}`,
+            deletedBy: `slack:${reviewer.storageValue}`,
           })
           .where(eq(comments.id, data.commentId));
 
@@ -277,7 +289,10 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           stage: "delete_execute",
           status: "succeeded",
           reasonCode: "slack_confirmed_delete",
-          payload: { reviewer: payload.user.username },
+          payload: {
+            reviewer: reviewer.storageValue,
+            reviewerSlackUserId: payload.user.id,
+          },
         });
 
         await updateMessage(
@@ -288,7 +303,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `🗑️ *Deleted* by @${payload.user.username}`,
+                text: `🗑️ *Deleted* by ${reviewer.display}`,
               },
             },
           ],
@@ -312,7 +327,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `⚠️ *Delete failed* by @${payload.user.username}\n${err instanceof Error ? err.message : String(err)}`,
+                text: `⚠️ *Delete failed* by ${reviewer.display}\n${err instanceof Error ? err.message : String(err)}`,
               },
             },
           ],
@@ -336,7 +351,10 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         stage: "delete_review",
         status: "skipped",
         reasonCode: "delete_review_skipped_by_human",
-        payload: { reviewer: payload.user.username },
+        payload: {
+          reviewer: reviewer.storageValue,
+          reviewerSlackUserId: payload.user.id,
+        },
       });
 
       await updateMessage(
@@ -347,7 +365,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `⏭️ *Skipped* by @${payload.user.username} (comment stands)`,
+              text: `⏭️ *Skipped* by ${reviewer.display} (comment stands)`,
             },
           },
         ],
@@ -421,7 +439,8 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
             status: "succeeded",
             reasonCode: "slack_edited",
             payload: {
-              reviewer: payload.user.username,
+              reviewer: reviewer.storageValue,
+              reviewerSlackUserId: payload.user.id,
               editCategory,
               editNotes,
             },
@@ -434,7 +453,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         .set({
           editedText,
           approvalStatus: "approved",
-          approvedBy: payload.user.username,
+          approvedBy: reviewer.storageValue,
           approvedAt: new Date(),
           reviewOutcomeReason: editCategory,
           reviewOutcomeCategory: getReviewOutcomeCategory(editCategory),
@@ -449,7 +468,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           metadata.messageTs,
           buildHandledReplyMessage({
             outcome: "edited",
-            reviewer: payload.user.username,
+            reviewer: reviewer.display,
             reason: editCategory,
             notes: editNotes,
             ...(handledContext ?? {
@@ -471,7 +490,8 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
 
       log("info", "Reply edited and approved", {
         replyId,
-        by: payload.user.username,
+        by: reviewer.storageValue,
+        slackUserId: payload.user.id,
         editCategory,
       });
     }
@@ -524,7 +544,8 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
             reasonCode: "slack_rejected",
             reasonDetail: rejectNotes ?? null,
             payload: {
-              reviewer: payload.user.username,
+              reviewer: reviewer.storageValue,
+              reviewerSlackUserId: payload.user.id,
               rejectReason,
             },
           });
@@ -542,7 +563,7 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
           metadata.messageTs,
           buildHandledReplyMessage({
             outcome: "rejected",
-            reviewer: payload.user.username,
+            reviewer: reviewer.display,
             reason: rejectReason,
             notes: rejectNotes,
             ...(handledContext ?? {
@@ -563,7 +584,8 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
 
       log("info", "Reply rejected", {
         replyId,
-        by: payload.user.username,
+        by: reviewer.storageValue,
+        slackUserId: payload.user.id,
         rejectReason,
         hasRejectNotes: Boolean(rejectNotes),
         rejectNotesLength: rejectNotes?.length ?? 0,

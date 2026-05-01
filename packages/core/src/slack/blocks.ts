@@ -149,17 +149,17 @@ export function buildHandledReplyMessage(context: HandledReplyContext) {
   const outcomeConfig = {
     approved: {
       header: "HANDLED - Approved",
-      summary: `Approved by @${context.reviewer}. No further review needed.`,
+      summary: `Approved by ${context.reviewer}. No further review needed.`,
       text: "Reply approved",
     },
     edited: {
       header: "HANDLED - Edited and approved",
-      summary: `Edited and approved by @${context.reviewer}. No further review needed.`,
+      summary: `Edited and approved by ${context.reviewer}. No further review needed.`,
       text: "Reply edited and approved",
     },
     rejected: {
       header: "HANDLED - Rejected",
-      summary: `Rejected by @${context.reviewer}. No reply will be sent.`,
+      summary: `Rejected by ${context.reviewer}. No reply will be sent.`,
       text: "Reply rejected",
     },
   }[context.outcome];
