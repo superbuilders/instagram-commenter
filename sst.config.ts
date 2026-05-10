@@ -1,12 +1,34 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
+function getEnvironment(stage?: string): string {
+  if (stage === "production") return "production";
+  if (stage === "staging") return "staging";
+  if (stage === "dev") return "dev";
+  return "ephemeral";
+}
+
 export default $config({
   app(input) {
+    const stage = input?.stage;
+
     return {
       name: "instagram-commenter",
-      removal: input?.stage === "production" ? "retain" : "remove",
-      protect: ["production"].includes(input?.stage),
+      removal: stage === "production" ? "retain" : "remove",
+      protect: ["production"].includes(stage),
       home: "aws",
+      providers: {
+        aws: {
+          region: "us-east-1",
+          defaultTags: {
+            tags: {
+              Project: "instagram-commenter",
+              Environment: getEnvironment(stage),
+              ManagedBy: "sst",
+              Owner: "max.mccorkle@superbuilders.school",
+            },
+          },
+        },
+      },
     };
   },
   async run() {
