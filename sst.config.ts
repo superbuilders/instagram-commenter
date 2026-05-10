@@ -24,7 +24,7 @@ export default $config({
               Project: "instagram-commenter",
               Environment: getEnvironment(stage),
               ManagedBy: "sst",
-              Owner: "max.mccorkle@superbuilders.school",
+              Owner: "yash.chitneni@superbuilders.school",
             },
           },
         },
