@@ -23,6 +23,9 @@ data/apify-raw/
 # local assistant memory
 .claude/
 
+# generated handoff bundles
+handoff/
+
 # generated eval outputs; preserve intentional baselines under data/eval-runs/
 data/eval-results.json
 data/eval-replies-results.json
