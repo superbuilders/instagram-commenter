@@ -77,7 +77,7 @@ export const handler = createCronHandler("run-eval", async (db) => {
 
   const evalSet = goldData
     .filter((e) => e.reviewed)
-    .map((e) => ({ ...e, goldLabel: normalizeGoldLabel(e.notes) }))
+    .map((e) => ({ ...e, goldLabel: normalizeGoldLabel(e.classification) }))
     .filter((e) => e.goldLabel !== null) as (GoldEntry & { goldLabel: string })[];
 
   log("info", "Eval starting", { totalEntries: evalSet.length });

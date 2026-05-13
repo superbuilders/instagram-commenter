@@ -30,9 +30,9 @@ interface EvalEntry {
   reviewed: boolean;
 }
 
-function normalizeGoldLabel(notes: string): string | null {
-  if (!notes) return null;
-  const base = notes.split(" (")[0].trim();
+function normalizeGoldLabel(label: string): string | null {
+  if (!label) return null;
+  const base = label.split(" (")[0].trim();
   if (base === "mixed") return null; // ambiguous, skip
   const valid = ["narrative_shaping", "community_building", "informational", "delete", "skip"];
   if (valid.includes(base)) return base;
@@ -63,7 +63,7 @@ async function main() {
   // Filter to entries with valid gold labels
   const evalSet = entries
     .filter((e) => e.reviewed)
-    .map((e) => ({ ...e, goldLabel: normalizeGoldLabel(e.notes) }))
+    .map((e) => ({ ...e, goldLabel: normalizeGoldLabel(e.classification) }))
     .filter((e) => e.goldLabel !== null) as (EvalEntry & { goldLabel: string })[];
 
   console.log(`\n=== Classification Eval ===`);
