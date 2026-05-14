@@ -3,13 +3,15 @@ node_modules
 
 # sst
 .sst
+sst-env.d.ts
+packages/*/sst-env.d.ts
 
 # tmp files
 .#*
 
 # env 
-.env*.local
-.env
+.env*
+!.env.example
 
 # opennext
 .open-next
@@ -17,4 +19,16 @@ node_modules
 # misc
 .DS_Store
 data/apify-raw/
-.env*
+
+# local assistant memory
+.claude/
+
+# generated handoff bundles
+handoff/
+
+# generated eval outputs; preserve intentional baselines under data/eval-runs/
+data/eval-results.json
+data/eval-replies-results.json
+
+# private credentials/troubleshooting notes
+docs/meta-api-troubleshooting.md

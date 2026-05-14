@@ -12,6 +12,8 @@
     ]
   },
   "dependencies": {
+    "drizzle-orm": "^0.38",
+    "pg": "^8",
     "sst": "*"
   },
   "devDependencies": {

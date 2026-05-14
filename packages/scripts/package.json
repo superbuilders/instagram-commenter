@@ -4,10 +4,14 @@
   "type": "module",
   "dependencies": {
     "@instagram-commenter/core": "*",
+    "apify-client": "^2.22.2",
     "sst": "*"
   },
   "scripts": {
-    "shell": "sst shell tsx"
+    "shell": "sst shell tsx",
+    "scrape": "node --env-file=../../.env --import tsx src/scrape-instagram.ts",
+    "process": "node --env-file=../../.env --import tsx src/process-scrape-data.ts",
+    "scrape:all": "node --env-file=../../.env --import tsx src/scrape-instagram.ts && node --env-file=../../.env --import tsx src/process-scrape-data.ts"
   },
   "devDependencies": {
     "@types/node": "^22",

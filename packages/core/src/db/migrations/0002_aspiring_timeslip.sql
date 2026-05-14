@@ -1,0 +1,1 @@
+ALTER TABLE "comments" ADD COLUMN "delete_slack_ts" varchar(255);

@@ -1,0 +1,435 @@
+{
+  "replyLengths": {
+    "min": 6,
+    "max": 688,
+    "avg": 143,
+    "median": 105,
+    "distribution": {
+      "0-50": 53,
+      "51-100": 36,
+      "101-200": 54,
+      "201-300": 18,
+      "301-500": 17,
+      "500+": 4
+    }
+  },
+  "commonPhrases": [
+    {
+      "phrase": "we are",
+      "count": 21
+    },
+    {
+      "phrase": "our students",
+      "count": 20
+    },
+    {
+      "phrase": "we have",
+      "count": 18
+    },
+    {
+      "phrase": "thank you",
+      "count": 16
+    },
+    {
+      "phrase": "go to",
+      "count": 16
+    },
+    {
+      "phrase": "link in",
+      "count": 13
+    },
+    {
+      "phrase": "my bio",
+      "count": 13
+    },
+    {
+      "phrase": "in the",
+      "count": 12
+    },
+    {
+      "phrase": "of our",
+      "count": 12
+    },
+    {
+      "phrase": "in my",
+      "count": 12
+    },
+    {
+      "phrase": "of the",
+      "count": 11
+    },
+    {
+      "phrase": "in my bio",
+      "count": 11
+    },
+    {
+      "phrase": "life skills",
+      "count": 11
+    },
+    {
+      "phrase": "our guides",
+      "count": 10
+    },
+    {
+      "phrase": "to the",
+      "count": 9
+    },
+    {
+      "phrase": "have a",
+      "count": 9
+    },
+    {
+      "phrase": "to my",
+      "count": 9
+    },
+    {
+      "phrase": "the link",
+      "count": 9
+    },
+    {
+      "phrase": "link in my",
+      "count": 9
+    },
+    {
+      "phrase": "link in my bio",
+      "count": 9
+    },
+    {
+      "phrase": "we also",
+      "count": 8
+    },
+    {
+      "phrase": "they are",
+      "count": 8
+    },
+    {
+      "phrase": "students are",
+      "count": 8
+    },
+    {
+      "phrase": "and we",
+      "count": 8
+    },
+    {
+      "phrase": "also have",
+      "count": 8
+    },
+    {
+      "phrase": "the link in",
+      "count": 8
+    },
+    {
+      "phrase": "the link in my",
+      "count": 8
+    },
+    {
+      "phrase": "we use",
+      "count": 8
+    },
+    {
+      "phrase": "in a",
+      "count": 7
+    },
+    {
+      "phrase": "you are",
+      "count": 7
+    },
+    {
+      "phrase": "our students are",
+      "count": 7
+    },
+    {
+      "phrase": "we also have",
+      "count": 7
+    },
+    {
+      "phrase": "bring alpha",
+      "count": 7
+    },
+    {
+      "phrase": "alpha to",
+      "count": 7
+    },
+    {
+      "phrase": "bring alpha to",
+      "count": 7
+    },
+    {
+      "phrase": "yes we",
+      "count": 6
+    },
+    {
+      "phrase": "can be",
+      "count": 6
+    },
+    {
+      "phrase": "at the",
+      "count": 6
+    },
+    {
+      "phrase": "you for",
+      "count": 6
+    },
+    {
+      "phrase": "thank you for",
+      "count": 6
+    },
+    {
+      "phrase": "we have a",
+      "count": 6
+    },
+    {
+      "phrase": "on the",
+      "count": 6
+    },
+    {
+      "phrase": "are working",
+      "count": 6
+    },
+    {
+      "phrase": "working on",
+      "count": 6
+    },
+    {
+      "phrase": "we are working",
+      "count": 6
+    },
+    {
+      "phrase": "the day",
+      "count": 6
+    },
+    {
+      "phrase": "alpha to my",
+      "count": 6
+    },
+    {
+      "phrase": "bring alpha to my",
+      "count": 6
+    },
+    {
+      "phrase": "city and",
+      "count": 6
+    },
+    {
+      "phrase": "go to the",
+      "count": 6
+    }
+  ],
+  "emojiUsage": {
+    "🙏": 10,
+    "😀": 10,
+    "🙌": 13,
+    "👍": 22,
+    "🫠": 1,
+    "🤓": 1,
+    "🫶": 5,
+    "🥰": 1,
+    "😁": 4,
+    "😉": 2,
+    "😂": 3,
+    "👏": 2,
+    "😜": 1,
+    "☺": 1,
+    "️": 2,
+    "😢": 3,
+    "💯": 2,
+    "💪": 2,
+    "💚": 1,
+    "😍": 1,
+    "☹": 1,
+    "🤣": 2,
+    "🌲": 3,
+    "😊": 1,
+    "😄": 1,
+    "🙂": 1,
+    "😌": 1
+  },
+  "responseTimeMinutes": [
+    67,
+    125,
+    222,
+    89,
+    64,
+    80,
+    25,
+    26,
+    109,
+    2395,
+    174,
+    45,
+    41,
+    39,
+    770,
+    362,
+    2,
+    266,
+    400,
+    767,
+    372,
+    44641,
+    374,
+    496,
+    245,
+    991,
+    2258,
+    617,
+    218,
+    40,
+    314,
+    1419,
+    423,
+    1130,
+    449,
+    211,
+    1315,
+    64,
+    132,
+    99,
+    749,
+    351,
+    323,
+    92,
+    806,
+    3,
+    18,
+    444,
+    158,
+    287,
+    36,
+    377,
+    124,
+    196,
+    763,
+    363,
+    200,
+    830,
+    606,
+    227,
+    196,
+    848,
+    408,
+    104,
+    255,
+    63,
+    89,
+    74,
+    73,
+    696,
+    244,
+    79,
+    131,
+    38303,
+    88,
+    349,
+    664,
+    144,
+    358,
+    563,
+    139,
+    271,
+    51,
+    42,
+    213,
+    510,
+    42,
+    28,
+    61,
+    119,
+    489,
+    1148,
+    3,
+    12,
+    433,
+    631,
+    913,
+    8,
+    14,
+    220,
+    25,
+    933,
+    61,
+    106,
+    85,
+    10,
+    46,
+    31,
+    65,
+    1221,
+    2947,
+    1520,
+    1250,
+    1474,
+    43,
+    77,
+    80,
+    1073,
+    760,
+    45,
+    62151,
+    113,
+    54,
+    37,
+    479,
+    517,
+    267,
+    5724,
+    442,
+    33,
+    69,
+    127,
+    9,
+    2902,
+    740,
+    964,
+    604,
+    2014,
+    38,
+    150,
+    2,
+    9,
+    85,
+    1573,
+    681,
+    429,
+    4,
+    4541,
+    567,
+    21,
+    1529,
+    64,
+    4593,
+    3,
+    755,
+    49,
+    570,
+    4,
+    39,
+    1735,
+    66,
+    8,
+    223,
+    1340,
+    302,
+    389,
+    32,
+    93,
+    130,
+    8,
+    4,
+    242,
+    7,
+    237,
+    10,
+    303,
+    17,
+    180,
+    213,
+    91,
+    1209,
+    83
+  ],
+  "avgReplyLengthByCommentType": {
+    "questions": 160,
+    "nonQuestions": 127
+  }
+}

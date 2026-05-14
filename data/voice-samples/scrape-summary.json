@@ -1,0 +1,93 @@
+{
+  "totalPosts": 777,
+  "totalComments": 5382,
+  "totalReplyPairs": 182,
+  "replyRate": 0.03,
+  "dateRange": {
+    "earliest": "2023-08-23T20:58:29.000Z",
+    "latest": "2026-03-13T20:20:59.000Z"
+  },
+  "avgRepliesPerPost": 0.23,
+  "topEngagedCommenters": [
+    {
+      "username": "sibblesnbitts",
+      "replyCount": 2
+    },
+    {
+      "username": "jameswlds",
+      "replyCount": 2
+    },
+    {
+      "username": "benmwhite86",
+      "replyCount": 2
+    },
+    {
+      "username": "sussanp",
+      "replyCount": 2
+    },
+    {
+      "username": "lindaelisabethvincent",
+      "replyCount": 2
+    },
+    {
+      "username": "theedgeofed",
+      "replyCount": 1
+    },
+    {
+      "username": "lovelykassy1999",
+      "replyCount": 1
+    },
+    {
+      "username": "2boyznmom",
+      "replyCount": 1
+    },
+    {
+      "username": "realestatetanja",
+      "replyCount": 1
+    },
+    {
+      "username": "q_naina",
+      "replyCount": 1
+    },
+    {
+      "username": "briana_b_almeida",
+      "replyCount": 1
+    },
+    {
+      "username": "rosalindveness.counselling",
+      "replyCount": 1
+    },
+    {
+      "username": "denise_lein13",
+      "replyCount": 1
+    },
+    {
+      "username": "gabrielsm13",
+      "replyCount": 1
+    },
+    {
+      "username": "kellenthe610",
+      "replyCount": 1
+    },
+    {
+      "username": "nikawarren24",
+      "replyCount": 1
+    },
+    {
+      "username": "george_costanza_is_batman",
+      "replyCount": 1
+    },
+    {
+      "username": "shivcreates",
+      "replyCount": 1
+    },
+    {
+      "username": "thegoddessnala",
+      "replyCount": 1
+    },
+    {
+      "username": "maneesha_w",
+      "replyCount": 1
+    }
+  ]
+}
