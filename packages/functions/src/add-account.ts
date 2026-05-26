@@ -6,6 +6,8 @@ import * as schema from "@instagram-commenter/core/db";
 import { postMessage } from "@instagram-commenter/core/slack";
 import { getLocalDateString } from "@instagram-commenter/core/time";
 
+const SLACK_API_BASE = "https://slack.com/api";
+
 function truncate(text: string | null | undefined, max: number): string {
   if (!text) return "";
   return text.length > max ? `${text.slice(0, max - 1)}...` : text;
@@ -13,6 +15,27 @@ function truncate(text: string | null | undefined, max: number): string {
 
 function formatGroup(group: string): string {
   return group.replace(/_/g, " ");
+}
+
+async function slackApi<T>(
+  token: string,
+  method: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  const response = await fetch(`${SLACK_API_BASE}/${method}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Slack HTTP ${response.status}: ${await response.text()}`);
+  }
+
+  return response.json() as Promise<T>;
 }
 
 export async function handler(event: { body?: string } = {}) {
@@ -27,6 +50,145 @@ export async function handler(event: { body?: string } = {}) {
 
   try {
     const body = event.body ? JSON.parse(event.body) : {};
+
+    if (body.action === "retire_slack_reviews") {
+      if (body.exportKey !== password) {
+        await pool.end();
+        return { statusCode: 403, body: JSON.stringify({ success: false, error: "Forbidden" }) };
+      }
+
+      const apply = body.apply === true;
+      const deleteSlackMessages = body.deleteSlackMessages === true;
+      const limit = Number.isFinite(Number(body.limit))
+        ? Math.min(Math.max(Number(body.limit), 1), 500)
+        : 100;
+      const olderThanHours = Number.isFinite(Number(body.olderThanHours))
+        ? Math.max(Number(body.olderThanHours), 0)
+        : null;
+      const beforeCreatedAt =
+        typeof body.beforeCreatedAt === "string" && body.beforeCreatedAt.trim()
+          ? new Date(body.beforeCreatedAt)
+          : null;
+
+      if (beforeCreatedAt && Number.isNaN(beforeCreatedAt.getTime())) {
+        await pool.end();
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ success: false, error: "Invalid beforeCreatedAt" }),
+        };
+      }
+
+      const cutoff = beforeCreatedAt
+        ? beforeCreatedAt
+        : new Date(Date.now() - (olderThanHours ?? 24) * 60 * 60 * 1000);
+
+      const total = await pool.query<{ count: string }>(
+        `
+        SELECT COUNT(*) AS count
+        FROM replies
+        WHERE approval_status = 'pending'
+          AND slack_message_ts IS NOT NULL
+          AND created_at < $1
+        `,
+        [cutoff]
+      );
+
+      const matches = await pool.query<{
+        reply_id: string;
+        comment_id: string;
+        slack_message_ts: string;
+        reply_created_at: string;
+        comment_text: string;
+        author_username: string | null;
+        classification_group: string | null;
+      }>(
+        `
+        SELECT
+          r.id AS reply_id,
+          r.comment_id,
+          r.slack_message_ts,
+          r.created_at AS reply_created_at,
+          c.text AS comment_text,
+          c.author_username,
+          c.classification_group
+        FROM replies r
+        INNER JOIN comments c ON c.id = r.comment_id
+        WHERE r.approval_status = 'pending'
+          AND r.slack_message_ts IS NOT NULL
+          AND r.created_at < $1
+        ORDER BY r.created_at ASC
+        LIMIT $2
+        `,
+        [cutoff, limit]
+      );
+
+      const deletedSlackMessages: Array<{ replyId: string; ts: string }> = [];
+      const deleteFailures: Array<{ replyId: string; ts: string; error: string }> = [];
+
+      if (apply && matches.rows.length > 0) {
+        await pool.query(
+          `
+          UPDATE replies
+          SET
+            approval_status = 'rejected',
+            review_outcome_reason = 'other',
+            review_outcome_category = 'operator',
+            review_outcome_notes = 'stale_review_reset: retired by retire_slack_reviews maintenance action.',
+            updated_at = NOW()
+          WHERE id = ANY($1::uuid[])
+          `,
+          [matches.rows.map((row) => row.reply_id)]
+        );
+
+        if (deleteSlackMessages) {
+          const slackToken = (Resource as any).SlackBotToken.value;
+          const channelId = (Resource as any).SlackChannelId.value;
+          for (const row of matches.rows) {
+            const result = await slackApi<{ ok: boolean; error?: string }>(
+              slackToken,
+              "chat.delete",
+              { channel: channelId, ts: row.slack_message_ts }
+            );
+            if (result.ok) {
+              deletedSlackMessages.push({
+                replyId: row.reply_id,
+                ts: row.slack_message_ts,
+              });
+            } else {
+              deleteFailures.push({
+                replyId: row.reply_id,
+                ts: row.slack_message_ts,
+                error: result.error ?? "unknown_error",
+              });
+            }
+          }
+        }
+      }
+
+      await pool.end();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          apply,
+          deleteSlackMessages,
+          cutoff: cutoff.toISOString(),
+          totalMatching: Number(total.rows[0]?.count ?? 0),
+          selected: matches.rows.length,
+          retired: apply ? matches.rows.length : 0,
+          deletedSlackMessages: deletedSlackMessages.length,
+          deleteFailures,
+          sample: matches.rows.slice(0, 10).map((row) => ({
+            replyId: row.reply_id,
+            createdAt: row.reply_created_at,
+            classificationGroup: row.classification_group,
+            authorUsername: row.author_username,
+            text: truncate(row.comment_text, 160),
+            slackMessageTs: row.slack_message_ts,
+          })),
+        }),
+      };
+    }
 
     if (body.action === "missed_comments_report") {
       if (body.exportKey !== password) {
