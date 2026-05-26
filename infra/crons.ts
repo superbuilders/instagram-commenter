@@ -15,7 +15,10 @@ const dbEnv = {
   DATABASE_USERNAME: "app",
 };
 
-const cronsEnabled = process.env.ENABLE_COMMENT_CRONS === "true";
+const isProductionStage = $app.stage === "production";
+const cronsEnabled = process.env.ENABLE_COMMENT_CRONS
+  ? process.env.ENABLE_COMMENT_CRONS === "true"
+  : isProductionStage;
 const postRepliesEnabled = process.env.ENABLE_POST_REPLY_CRON === "true";
 const deleteCommentsEnabled = process.env.ENABLE_DELETE_COMMENT_CRON === "true";
 const autoIngestEnabled = process.env.ENABLE_AUTO_INGEST_CRON === "true";
