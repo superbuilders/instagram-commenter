@@ -209,6 +209,17 @@ export async function handler(event: { body?: string } = {}) {
               });
             }
           }
+
+          if (deletedSlackMessages.length > 0) {
+            await pool.query(
+              `
+              UPDATE replies
+              SET slack_message_ts = NULL
+              WHERE id = ANY($1::uuid[])
+              `,
+              [deletedSlackMessages.map((row) => row.replyId)]
+            );
+          }
         }
       }
 
