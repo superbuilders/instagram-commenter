@@ -133,8 +133,7 @@ export async function handler(event: { body?: string } = {}) {
             approval_status = 'rejected',
             review_outcome_reason = 'other',
             review_outcome_category = 'operator',
-            review_outcome_notes = 'stale_review_reset: retired by retire_slack_reviews maintenance action.',
-            updated_at = NOW()
+            review_outcome_notes = 'stale_review_reset: retired by retire_slack_reviews maintenance action.'
           WHERE id = ANY($1::uuid[])
           `,
           [matches.rows.map((row) => row.reply_id)]
