@@ -1,6 +1,8 @@
 export {
   getRecentMedia,
+  getRecentMediaWithStats,
   getComments,
+  getCommentsWithStats,
   postReply,
   deleteComment,
   refreshLongLivedToken,
@@ -8,5 +10,8 @@ export {
   type InstagramApiOptions,
   type IGPost,
   type IGComment,
+  type MediaFetchResult,
+  type CommentFetchResult,
+  type PagedFetchStats,
   type RateLimitInfo,
 } from "./api.js";

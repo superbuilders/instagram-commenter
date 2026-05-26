@@ -122,6 +122,18 @@ async function getHandledReplyContext(db: any, replyId: string) {
   };
 }
 
+async function getReplyById(db: any, replyId: string) {
+  const [reply] = await db
+    .select()
+    .from(replies)
+    .where(eq(replies.id, replyId));
+  return reply ?? null;
+}
+
+function isPendingReply(reply: { approvalStatus: string } | null): boolean {
+  return reply?.approvalStatus === "pending";
+}
+
 export const handler = createHttpHandler("slack-approval", async (db, body, headers) => {
   const signingSecret = getSlackSigningSecret();
   const timestamp = headers["x-slack-request-timestamp"] ?? "";
@@ -147,10 +159,15 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
     const data = JSON.parse(action.value);
 
     if (action.action_id === "approve") {
-      const [reply] = await db
-        .select()
-        .from(replies)
-        .where(eq(replies.id, data.replyId));
+      const reply = await getReplyById(db, data.replyId);
+      if (!isPendingReply(reply)) {
+        log("info", "Ignoring approve action for non-pending reply", {
+          replyId: data.replyId,
+          status: reply?.approvalStatus ?? "missing",
+        });
+        return { statusCode: 200, body: "" };
+      }
+
       const [comment] = await db
         .select()
         .from(comments)
@@ -228,6 +245,15 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
     }
 
     if (action.action_id === "edit") {
+      const reply = await getReplyById(db, data.replyId);
+      if (!isPendingReply(reply)) {
+        log("info", "Ignoring edit action for non-pending reply", {
+          replyId: data.replyId,
+          status: reply?.approvalStatus ?? "missing",
+        });
+        return { statusCode: 200, body: "" };
+      }
+
       const modal = buildEditModal(data.replyId, data.originalText) as Record<string, unknown>;
       modal.private_metadata = JSON.stringify({
         replyId: data.replyId,
@@ -239,6 +265,15 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
     }
 
     if (action.action_id === "reject") {
+      const reply = await getReplyById(db, data.replyId);
+      if (!isPendingReply(reply)) {
+        log("info", "Ignoring reject action for non-pending reply", {
+          replyId: data.replyId,
+          status: reply?.approvalStatus ?? "missing",
+        });
+        return { statusCode: 200, body: "" };
+      }
+
       const modal = buildRejectModal(data.replyId) as Record<string, unknown>;
       modal.private_metadata = JSON.stringify({
         replyId: data.replyId,
@@ -391,10 +426,15 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         readSelectedValue(state.values, "edit_category_block", "edit_category") ?? "voice_tweak";
       const editNotes = readSelectedValue(state.values, "edit_notes_block", "edit_notes");
 
-      const [reply] = await db
-        .select()
-        .from(replies)
-        .where(eq(replies.id, replyId));
+      const reply = await getReplyById(db, replyId);
+
+      if (!isPendingReply(reply)) {
+        log("info", "Ignoring edit submission for non-pending reply", {
+          replyId,
+          status: reply?.approvalStatus ?? "missing",
+        });
+        return { statusCode: 200, body: "" };
+      }
 
       if (reply) {
         const [comment] = await db
@@ -502,10 +542,15 @@ export const handler = createHttpHandler("slack-approval", async (db, body, head
         readSelectedValue(state.values, "reject_reason_block", "reject_reason") ?? "other";
       const rejectNotes = readSelectedValue(state.values, "reject_notes_block", "reject_notes");
 
-      const [reply] = await db
-        .select()
-        .from(replies)
-        .where(eq(replies.id, replyId));
+      const reply = await getReplyById(db, replyId);
+
+      if (!isPendingReply(reply)) {
+        log("info", "Ignoring reject submission for non-pending reply", {
+          replyId,
+          status: reply?.approvalStatus ?? "missing",
+        });
+        return { statusCode: 200, body: "" };
+      }
 
       if (reply) {
         const { comment, account } = await getAccountForComment(db, reply.commentId);

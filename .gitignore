@@ -22,6 +22,7 @@ data/apify-raw/
 
 # local assistant memory
 .claude/
+.codex/
 
 # generated handoff bundles
 handoff/

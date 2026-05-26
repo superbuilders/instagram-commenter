@@ -1,5 +1,5 @@
 import { eq, and, gte, lte, sql, count, desc } from "drizzle-orm";
-import { comments, replies, dailyBudgets, evalResults, commentPipelineEvents } from "@instagram-commenter/core/db";
+import { comments, posts, replies, dailyBudgets, evalResults, commentPipelineEvents } from "@instagram-commenter/core/db";
 import { postMessage, buildDigestMessage } from "@instagram-commenter/core/slack";
 import {
   APP_TIME_ZONE,
@@ -165,6 +165,39 @@ export const handler = createCronHandler("slack-digest", async (db) => {
     .sort((a, b) => b.commentCount - a.commentCount || b.eventCount - a.eventCount)
     .slice(0, 5);
 
+  const gapExampleRows = await db
+    .select({
+      text: comments.text,
+      authorUsername: comments.authorUsername,
+      likesCount: comments.likesCount,
+      classificationGroup: comments.classificationGroup,
+      narrativeTopic: comments.narrativeTopic,
+      infoType: comments.infoType,
+      permalink: posts.permalink,
+      eventCreatedAt: commentPipelineEvents.createdAt,
+    })
+    .from(commentPipelineEvents)
+    .innerJoin(comments, eq(commentPipelineEvents.commentId, comments.id))
+    .innerJoin(posts, eq(comments.postId, posts.id))
+    .where(
+      and(
+        gte(commentPipelineEvents.createdAt, startOfDay),
+        lte(commentPipelineEvents.createdAt, endOfDay),
+        eq(commentPipelineEvents.reasonCode, "no_relevant_knowledge"),
+        sql`COALESCE(${commentPipelineEvents.payload}->>'classificationGroup', '') <> 'community_building'`
+      )
+    )
+    .orderBy(desc(comments.likesCount), desc(commentPipelineEvents.createdAt))
+    .limit(5);
+
+  const gapExamples = gapExampleRows.map((row) => ({
+    topic: row.narrativeTopic ?? row.infoType ?? row.classificationGroup ?? "general",
+    authorUsername: row.authorUsername,
+    likesCount: row.likesCount,
+    text: row.text,
+    permalink: row.permalink,
+  }));
+
   // Deletion count
   const [deleteResult] = await db
     .select({ count: count() })
@@ -205,6 +238,7 @@ export const handler = createCronHandler("slack-digest", async (db) => {
     deletionsExecuted: Number(deleteResult?.count ?? 0),
     budgetUtilization: totalBudget > 0 ? totalPosted / totalBudget : 0,
     gapTopics,
+    gapExamples,
     topRejectReasons,
     pipelineIssues,
     evalScore,

@@ -22,6 +22,7 @@ export interface GeneratorInput {
   infoType?: string;
   knowledge: SearchResult[];
   examples: ExampleResult[];
+  negativeExamples?: ExampleResult[];
 }
 
 export interface GeneratorResult {
@@ -72,12 +73,13 @@ Generate a short, warm reply in MacKenzie's voice. Under 150 characters.
 Types: encouragement, thank you, commiseration with parents, casual Q&A, celebration.
 Match the energy of the comment — if they're excited, be excited back.
 If it's a casual question, give a genuine answer or point them to bio/DMs.
+If the comment is emoji-only, generic praise, a giveaway entry, or otherwise low-effort with no relationship value, return {"skip": true, "reason": "low value community comment"}.
 
 VARY YOUR STYLE. Don't always say "love this!" or "thank you!". Mix it up:
 - Sometimes just match their emoji energy (🙌🙌 or 👏💯)
 - Sometimes ask a follow-up question back
 - Sometimes share a brief personal reaction
-- For emoji-only comments (👏👏👏), a short emoji reply or brief warm acknowledgment is perfect — don't over-explain
+- For emoji-only comments (👏👏👏), usually skip unless the post context makes the interaction unusually valuable
 MacKenzie doesn't respond to every nice comment the same way.`,
 
     narrative_shaping: `MODE: Narrative Shaping
@@ -119,7 +121,7 @@ Respond with JSON only:
 {"reply_text": "your reply here"} or {"skip": true, "reason": "why"}`;
 }
 
-function buildUserMessage(input: GeneratorInput): string {
+export function buildUserMessage(input: GeneratorInput): string {
   const parts: string[] = [];
 
   parts.push(`COMMENT TO REPLY TO: "${input.commentText}"`);
@@ -144,6 +146,19 @@ function buildUserMessage(input: GeneratorInput): string {
     parts.push("\nSIMILAR APPROVED REPLIES (for voice reference):");
     for (const e of input.examples) {
       parts.push(`- Comment: "${e.commentText}"\n  MacKenzie replied: "${e.responseText}"`);
+    }
+  }
+
+  if (input.negativeExamples && input.negativeExamples.length > 0) {
+    parts.push("\nSIMILAR REJECTED REPLIES (avoid repeating these mistakes):");
+    for (const e of input.negativeExamples) {
+      const reason = e.reviewReason
+        ? `\n  Rejection reason: ${e.reviewReason.replace(/_/g, " ")}`
+        : "";
+      const notes = e.reviewNotes ? `\n  Reviewer notes: ${e.reviewNotes}` : "";
+      parts.push(
+        `- Comment: "${e.commentText}"\n  Rejected draft: "${e.responseText}"${reason}${notes}`
+      );
     }
   }
 

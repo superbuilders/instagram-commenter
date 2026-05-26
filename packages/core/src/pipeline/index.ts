@@ -1,10 +1,10 @@
 import type { Database } from "../db/index.js";
 import { commentPipelineEvents } from "../db/schema.js";
 
-export const CLASSIFIER_POLICY_VERSION = "2026-04-04-v1";
-export const CLASSIFIER_PROMPT_VERSION = "2026-04-04-v1";
+export const CLASSIFIER_POLICY_VERSION = "2026-05-22-v1";
+export const CLASSIFIER_PROMPT_VERSION = "2026-05-22-v1";
 export const CLASSIFIER_MODEL = "claude-sonnet-4-20250514";
-export const GENERATOR_PROMPT_VERSION = "2026-04-04-v1";
+export const GENERATOR_PROMPT_VERSION = "2026-05-22-v1";
 export const GENERATOR_MODEL = "claude-sonnet-4-20250514";
 export const VERIFIER_PROMPT_VERSION = "2026-04-04-v1";
 export const VERIFIER_MODEL = "claude-haiku-4-5-20251001";

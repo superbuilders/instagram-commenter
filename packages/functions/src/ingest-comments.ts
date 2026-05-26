@@ -6,10 +6,25 @@ import {
 } from "@instagram-commenter/core/db";
 import { recordPipelineEvent } from "@instagram-commenter/core/pipeline";
 import {
-  getRecentMedia,
-  getComments,
+  getRecentMediaWithStats,
+  getCommentsWithStats,
 } from "@instagram-commenter/core/instagram";
+import { incrementCommentsSeen } from "@instagram-commenter/core/scheduling";
 import { createCronHandler, log } from "./lib/handler.js";
+
+const MEDIA_PAGE_LIMIT = getPageLimit("INGEST_MEDIA_PAGE_LIMIT", 1);
+const COMMENT_PAGE_LIMIT = getPageLimit("INGEST_COMMENT_PAGE_LIMIT", 10);
+const REPLY_PAGE_LIMIT = getPageLimit("INGEST_REPLY_PAGE_LIMIT", 5);
+
+function getPageLimit(envName: string, fallback: number): number {
+  const raw = process.env[envName];
+  if (!raw) return fallback;
+  if (raw.toLowerCase() === "all") return Number.POSITIVE_INFINITY;
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
 
 export const handler = createCronHandler("ingest-comments", async (db) => {
   const activeAccounts = await db.select().from(accounts);
@@ -25,10 +40,14 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
       accountId: account.platformId,
     };
 
-    const media = await getRecentMedia(opts);
+    const mediaResult = await getRecentMediaWithStats(opts, MEDIA_PAGE_LIMIT);
+    const media = mediaResult.posts;
     log("info", "Fetched recent media", {
       accountId: account.id,
       postCount: media.length,
+      pagesFetched: mediaResult.stats.pagesFetched,
+      hitPageLimit: mediaResult.stats.hitPageLimit,
+      pageLimit: MEDIA_PAGE_LIMIT,
     });
 
     for (const post of media) {
@@ -58,7 +77,26 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
       }
 
       // Fetch comments
-      const igComments = await getComments(post.id, opts);
+      const commentResult = await getCommentsWithStats(
+        post.id,
+        opts,
+        COMMENT_PAGE_LIMIT,
+        REPLY_PAGE_LIMIT
+      );
+      const igComments = commentResult.comments;
+      if (
+        post.comments_count != null &&
+        igComments.length < post.comments_count
+      ) {
+        log("warn", "Fetched fewer comments than Instagram reports", {
+          postId: post.id,
+          expectedComments: post.comments_count,
+          fetchedTopLevelComments: igComments.length,
+          topLevelPagesFetched: commentResult.topLevelStats.pagesFetched,
+          hitPageLimit: commentResult.topLevelStats.hitPageLimit,
+          commentPageLimit: COMMENT_PAGE_LIMIT,
+        });
+      }
 
       let newCount = 0;
       for (const comment of igComments) {
@@ -139,9 +177,15 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
       }
 
       if (newCount > 0) {
+        await incrementCommentsSeen(account.id, newCount, db);
+
         log("info", "Ingested new comments", {
           postId: post.id,
           newComments: newCount,
+          topLevelPagesFetched: commentResult.topLevelStats.pagesFetched,
+          replyPagesFetched: commentResult.replyStats.replyPagesFetched,
+          hitCommentPageLimit: commentResult.topLevelStats.hitPageLimit,
+          hitReplyPageLimit: commentResult.replyStats.hitReplyPageLimit,
         });
       }
     }

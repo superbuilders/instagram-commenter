@@ -20,7 +20,7 @@ export interface IGComment {
   username: string;
   timestamp: string;
   like_count: number;
-  replies?: { data: IGComment[] };
+  replies?: GraphResponse<IGComment>;
 }
 
 interface GraphResponse<T> {
@@ -37,6 +37,27 @@ interface GraphError {
     type: string;
     code: number;
     error_subcode?: number;
+  };
+}
+
+export interface PagedFetchStats {
+  pagesFetched: number;
+  hitPageLimit: boolean;
+  nextUrl: string | null;
+}
+
+export interface MediaFetchResult {
+  posts: IGPost[];
+  stats: PagedFetchStats;
+}
+
+export interface CommentFetchResult {
+  comments: IGComment[];
+  topLevelStats: PagedFetchStats;
+  replyStats: {
+    commentsWithReplies: number;
+    replyPagesFetched: number;
+    hitReplyPageLimit: boolean;
   };
 }
 
@@ -83,53 +104,184 @@ async function graphFetch<T>(
   throw new Error("Unreachable");
 }
 
-export async function getRecentMedia(
-  opts: InstagramApiOptions
-): Promise<IGPost[]> {
-  const result = await graphFetch<GraphResponse<IGPost>>(
-    `/${opts.accountId}/media`,
-    {
-      fields: "id,caption,media_type,permalink,timestamp,comments_count",
-      limit: "25",
+async function graphFetchUrl<T>(
+  url: string,
+  retries = 2
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const response = await fetch(url);
+
+    if (response.status === 429) {
+      if (attempt < retries) {
+        const waitMs = Math.pow(2, attempt + 1) * 1000;
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      throw new Error("Instagram API rate limit exceeded after retries");
+    }
+
+    if (!response.ok) {
+      const err = (await response.json()) as GraphError;
+      throw new Error(
+        `Instagram API error ${response.status}: ${err.error?.message ?? "Unknown"} (code ${err.error?.code})`
+      );
+    }
+
+    return response.json() as Promise<T>;
+  }
+
+  throw new Error("Unreachable");
+}
+
+async function collectPaged<T>(
+  firstPage: () => Promise<GraphResponse<T>>,
+  maxPages: number
+): Promise<{ items: T[]; stats: PagedFetchStats }> {
+  const items: T[] = [];
+  let nextUrl: string | undefined;
+  let pagesFetched = 0;
+
+  while (pagesFetched < maxPages) {
+    const result = nextUrl
+      ? await graphFetchUrl<GraphResponse<T>>(nextUrl)
+      : await firstPage();
+
+    pagesFetched++;
+    items.push(...result.data);
+    nextUrl = result.paging?.next;
+    if (!nextUrl) break;
+  }
+
+  return {
+    items,
+    stats: {
+      pagesFetched,
+      hitPageLimit: Boolean(nextUrl),
+      nextUrl: nextUrl ?? null,
     },
-    opts.accessToken
+  };
+}
+
+function dedupeComments(comments: IGComment[]): IGComment[] {
+  const seen = new Set<string>();
+  const deduped: IGComment[] = [];
+
+  for (const comment of comments) {
+    if (seen.has(comment.id)) continue;
+    seen.add(comment.id);
+    deduped.push(comment);
+  }
+
+  return deduped;
+}
+
+async function fetchRemainingReplies(
+  comment: IGComment,
+  maxReplyPages: number
+): Promise<{ comment: IGComment; pagesFetched: number; hitPageLimit: boolean }> {
+  const replies = [...(comment.replies?.data ?? [])];
+  let nextUrl = comment.replies?.paging?.next;
+  let pagesFetched = replies.length > 0 ? 1 : 0;
+
+  while (nextUrl && pagesFetched < maxReplyPages) {
+    const result = await graphFetchUrl<GraphResponse<IGComment>>(nextUrl);
+    pagesFetched++;
+    replies.push(...result.data);
+    nextUrl = result.paging?.next;
+  }
+
+  return {
+    comment: {
+      ...comment,
+      replies: replies.length > 0 ? { data: dedupeComments(replies) } : undefined,
+    },
+    pagesFetched,
+    hitPageLimit: Boolean(nextUrl),
+  };
+}
+
+export async function getRecentMediaWithStats(
+  opts: InstagramApiOptions,
+  maxPages = Number.POSITIVE_INFINITY
+): Promise<MediaFetchResult> {
+  const result = await collectPaged(
+    () =>
+      graphFetch<GraphResponse<IGPost>>(
+        `/${opts.accountId}/media`,
+        {
+          fields: "id,caption,media_type,permalink,timestamp,comments_count",
+          limit: "25",
+        },
+        opts.accessToken
+      ),
+    maxPages
   );
-  return result.data;
+
+  return { posts: result.items, stats: result.stats };
+}
+
+export async function getRecentMedia(
+  opts: InstagramApiOptions,
+  maxPages = Number.POSITIVE_INFINITY
+): Promise<IGPost[]> {
+  const result = await getRecentMediaWithStats(opts, maxPages);
+  return result.posts;
+}
+
+export async function getCommentsWithStats(
+  mediaId: string,
+  opts: Pick<InstagramApiOptions, "accessToken">,
+  maxPages = Number.POSITIVE_INFINITY,
+  maxReplyPages = Number.POSITIVE_INFINITY
+): Promise<CommentFetchResult> {
+  const result = await collectPaged(
+    () =>
+      graphFetch<GraphResponse<IGComment>>(
+        `/${mediaId}/comments`,
+        {
+          fields:
+            "id,text,username,timestamp,like_count,replies.limit(50){id,text,username,timestamp,like_count}",
+          limit: "50",
+        },
+        opts.accessToken
+      ),
+    maxPages
+  );
+
+  const comments: IGComment[] = [];
+  let commentsWithReplies = 0;
+  let replyPagesFetched = 0;
+  let hitReplyPageLimit = false;
+
+  for (const comment of result.items) {
+    const replyResult = await fetchRemainingReplies(
+      comment,
+      maxReplyPages
+    );
+    if (replyResult.pagesFetched > 0) commentsWithReplies++;
+    replyPagesFetched += replyResult.pagesFetched;
+    hitReplyPageLimit ||= replyResult.hitPageLimit;
+    comments.push(replyResult.comment);
+  }
+
+  return {
+    comments: dedupeComments(comments),
+    topLevelStats: result.stats,
+    replyStats: {
+      commentsWithReplies,
+      replyPagesFetched,
+      hitReplyPageLimit,
+    },
+  };
 }
 
 export async function getComments(
   mediaId: string,
   opts: Pick<InstagramApiOptions, "accessToken">,
-  maxPages = 5
+  maxPages = Number.POSITIVE_INFINITY
 ): Promise<IGComment[]> {
-  const all: IGComment[] = [];
-  let nextUrl: string | undefined;
-
-  for (let page = 0; page < maxPages; page++) {
-    let result: GraphResponse<IGComment>;
-
-    if (nextUrl) {
-      const response = await fetch(nextUrl);
-      if (!response.ok) break;
-      result = (await response.json()) as GraphResponse<IGComment>;
-    } else {
-      result = await graphFetch<GraphResponse<IGComment>>(
-        `/${mediaId}/comments`,
-        {
-          fields:
-            "id,text,username,timestamp,like_count,replies{id,text,username,timestamp,like_count}",
-          limit: "50",
-        },
-        opts.accessToken
-      );
-    }
-
-    all.push(...result.data);
-    nextUrl = result.paging?.next;
-    if (!nextUrl) break;
-  }
-
-  return all;
+  const result = await getCommentsWithStats(mediaId, opts, maxPages);
+  return result.comments;
 }
 
 export async function postReply(

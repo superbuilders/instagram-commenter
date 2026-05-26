@@ -47,7 +47,7 @@ Classify each comment into exactly ONE of these five categories:
    - Encouragement, praise, gratitude ("love this!", "you're amazing")
    - Commiseration with fellow parents about the school system
    - Casual questions ("where'd you get those boots?", "are you speaking at X?")
-   - Emoji reactions from real users: 👏👏👏, ❤️❤️❤️, 🔥🔥🔥, 🙌, 💯 — these are community_building unless they are clearly bot-like or unintelligible
+   - Substantive warmth from real users when it has relationship value, not just emoji or one-word praise
    - Loyal follower interactions
    - Comments that AGREE with Alpha's approach on AI/screen time (supportive, not debating)
 
@@ -77,13 +77,15 @@ Classify each comment into exactly ONE of these five categories:
    - Comments giving unsolicited advice, safety tips, or corrections not directed at Alpha ("PLEASE only two finger CPR on an infant", "you should never do X with kids") → SKIP. These are sharing opinions, not asking Alpha anything.
    - Comments from verified or high-follower accounts (100K+) → SKIP with reason "flag_for_human"
    - Low-effort reactions or one-word agreement/disagreement that do not add meaning ("Agreed!!!!!", "Yesssss", "Exactly", "Nope", "This", "100%", "So true") → SKIP with reason "low_effort_reaction". These should not consume reply budget.
+   - Teacher giveaway entries that are just a grade, subject, school role, or emoji → SKIP with reason "giveaway_entry". These should not consume reply budget unless they include a real question or meaningful personal story.
    - Completely unintelligible comments
-   NOTE: Emoji reactions from real users can be COMMUNITY_BUILDING when they carry warmth or relationship value, but emoji-only or very short reactions should be SKIP if they are too low-effort to deserve a reply.
+   NOTE: Emoji reactions from real users can be COMMUNITY_BUILDING only when the surrounding text carries warmth or relationship value. Emoji-only or very short reactions should be SKIP.
 
 EXAMPLES (from human-reviewed corrections):
 
-Comment: "👏👏👏" → COMMUNITY_BUILDING (emoji support from a real user)
-Comment: "Amen 👏🫶🙌" → COMMUNITY_BUILDING (short praise)
+Comment: "👏👏👏" → SKIP (low_effort_reaction)
+Comment: "Amen 👏🫶🙌" → SKIP (low_effort_reaction)
+Comment: "3rd grade math" → SKIP (giveaway_entry)
 Comment: "Agreed !!!!!" → SKIP (low_effort_reaction)
 Comment: "Yesssssss" → SKIP (low_effort_reaction)
 Comment: "Exactly" → SKIP (low_effort_reaction)

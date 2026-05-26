@@ -25,6 +25,16 @@ interface ReplyContext {
   classificationGroup: string;
   confidence: number;
   narrativeTopic?: string;
+  infoType?: string;
+  allocationScore?: number;
+  allocationReasons?: string[];
+  knowledgeCount?: number;
+  topKnowledgeSimilarity?: number | null;
+  positiveExampleCount?: number;
+  topPositiveExampleSimilarity?: number | null;
+  negativeExampleCount?: number;
+  topNegativeExampleSimilarity?: number | null;
+  negativeWarningReason?: string | null;
 }
 
 interface HandledReplyContext {
@@ -42,6 +52,53 @@ function truncate(value: string, maxLength: number): string {
   return `${value.slice(0, maxLength - 1)}…`;
 }
 
+function formatSimilarity(value: number | null | undefined): string {
+  return value == null ? "n/a" : value.toFixed(2);
+}
+
+function buildWhySurfacedText(reply: ReplyContext): string | null {
+  const parts: string[] = [];
+
+  if (reply.allocationScore != null) {
+    parts.push(`score ${reply.allocationScore}`);
+  }
+
+  if (reply.allocationReasons && reply.allocationReasons.length > 0) {
+    parts.push(`signals: ${reply.allocationReasons.join(", ")}`);
+  }
+
+  if (reply.infoType) {
+    parts.push(`info: ${reply.infoType}`);
+  }
+
+  if (reply.knowledgeCount != null) {
+    parts.push(
+      `knowledge ${reply.knowledgeCount} (top ${formatSimilarity(reply.topKnowledgeSimilarity)})`
+    );
+  }
+
+  if (reply.positiveExampleCount != null) {
+    parts.push(
+      `approved examples ${reply.positiveExampleCount} (top ${formatSimilarity(
+        reply.topPositiveExampleSimilarity
+      )})`
+    );
+  }
+
+  if (reply.negativeExampleCount != null && reply.negativeExampleCount > 0) {
+    const reason = reply.negativeWarningReason
+      ? `, reason ${reply.negativeWarningReason.replace(/_/g, " ")}`
+      : "";
+    parts.push(
+      `rejected examples ${reply.negativeExampleCount} (top ${formatSimilarity(
+        reply.topNegativeExampleSimilarity
+      )}${reason})`
+    );
+  }
+
+  return parts.length > 0 ? `Why surfaced: ${parts.join(" | ")}` : null;
+}
+
 export function buildApprovalMessage(
   comment: CommentContext,
   reply: ReplyContext,
@@ -49,6 +106,7 @@ export function buildApprovalMessage(
 ) {
   const classLabel = reply.classificationGroup.replace(/_/g, " ");
   const confidencePct = Math.round(reply.confidence * 100);
+  const whySurfacedText = buildWhySurfacedText(reply);
 
   return {
     text: `New reply for review: "${reply.text.slice(0, 50)}..."`,
@@ -100,6 +158,19 @@ export function buildApprovalMessage(
                 {
                   type: "mrkdwn",
                   text: `Narrative topic: *${reply.narrativeTopic}*`,
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(whySurfacedText
+        ? [
+            {
+              type: "context",
+              elements: [
+                {
+                  type: "mrkdwn",
+                  text: truncate(whySurfacedText, 700),
                 },
               ],
             },
@@ -449,6 +520,13 @@ export function buildDigestMessage(stats: {
   deletionsExecuted: number;
   budgetUtilization: number;
   gapTopics: Array<{ topic: string; commentCount: number; eventCount: number }>;
+  gapExamples?: Array<{
+    topic: string;
+    authorUsername: string | null;
+    likesCount: number;
+    text: string;
+    permalink?: string | null;
+  }>;
   topRejectReasons?: Array<{ reason: string; count: number }>;
   pipelineIssues?: Array<{ label: string; commentCount: number; eventCount: number }>;
   evalScore?: { accuracy: number; date: string } | null;
@@ -522,6 +600,22 @@ export function buildDigestMessage(stats: {
           ...stats.gapTopics.map(
             (t) => `  ${t.topic}: ${t.commentCount} unique comments (${t.eventCount} events)`
           ),
+        ].join("\n"),
+      },
+    });
+  }
+
+  if ((stats.gapExamples?.length ?? 0) > 0) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          "*Knowledge gap examples to fill:*",
+          ...stats.gapExamples!.map((item) => {
+            const link = item.permalink ? ` <${item.permalink}|post>` : "";
+            return `  ${item.topic} / @${item.authorUsername ?? "unknown"} / ${item.likesCount} likes${link}: ${truncate(item.text, 160)}`;
+          }),
         ].join("\n"),
       },
     });

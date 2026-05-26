@@ -24,9 +24,27 @@ export interface ExampleResult {
   commentText: string;
   responseText: string;
   isPositive: boolean;
+  source: string;
   classificationGroup: string | null;
+  reviewReason: string | null;
+  reviewNotes: string | null;
   similarity: number;
 }
+
+export interface RetrievalResult {
+  knowledge: SearchResult[];
+  examples: ExampleResult[];
+  positiveExamples: ExampleResult[];
+  negativeExamples: ExampleResult[];
+  learnedSkipMatch: ExampleResult | null;
+  hasRelevantKnowledge: boolean;
+}
+
+const RELEVANT_KNOWLEDGE_THRESHOLD = 0.5;
+const POSITIVE_EXAMPLE_THRESHOLD = 0.65;
+const NEGATIVE_EXAMPLE_THRESHOLD = 0.72;
+const LEARNED_SKIP_THRESHOLD = 0.78;
+const HARD_SKIP_REVIEW_REASONS = new Set(["should_not_reply"]);
 
 export async function searchKnowledge(
   query: string,
@@ -82,10 +100,15 @@ export async function searchExamples(
   opts: SearchOptions & {
     classificationGroup?: string;
     positiveOnly?: boolean;
+    negativeOnly?: boolean;
     limit?: number;
     minSimilarity?: number;
   }
 ): Promise<ExampleResult[]> {
+  if (opts.positiveOnly && opts.negativeOnly) {
+    throw new Error("searchExamples cannot use both positiveOnly and negativeOnly");
+  }
+
   const embedding = await embedText(query, opts.openaiApiKey);
   const limit = opts.limit ?? 5;
   const minSimilarity = opts.minSimilarity ?? 0.3;
@@ -104,13 +127,20 @@ export async function searchExamples(
     conditions.push(eq(responseExamples.isPositive, true));
   }
 
+  if (opts.negativeOnly) {
+    conditions.push(eq(responseExamples.isPositive, false));
+  }
+
   const results = await opts.db
     .select({
       id: responseExamples.id,
       commentText: responseExamples.commentText,
       responseText: responseExamples.responseText,
       isPositive: responseExamples.isPositive,
+      source: responseExamples.source,
       classificationGroup: responseExamples.classificationGroup,
+      reviewReason: responseExamples.reviewReason,
+      reviewNotes: responseExamples.reviewNotes,
       similarity: similarityExpr,
     })
     .from(responseExamples)
@@ -121,16 +151,27 @@ export async function searchExamples(
   return results as ExampleResult[];
 }
 
+export function findLearnedSkipMatch(
+  negativeExamples: ExampleResult[],
+  threshold = LEARNED_SKIP_THRESHOLD
+): ExampleResult | null {
+  return (
+    negativeExamples.find(
+      (example) =>
+        !example.isPositive &&
+        example.similarity >= threshold &&
+        example.reviewReason != null &&
+        HARD_SKIP_REVIEW_REASONS.has(example.reviewReason)
+    ) ?? null
+  );
+}
+
 export async function retrieveForComment(
   commentText: string,
   classificationGroup: string,
   narrativeTopic: string | null,
   opts: SearchOptions
-): Promise<{
-  knowledge: SearchResult[];
-  examples: ExampleResult[];
-  hasRelevantKnowledge: boolean;
-}> {
+): Promise<RetrievalResult> {
   const knowledgeOpts: Parameters<typeof searchKnowledge>[1] = {
     ...opts,
     limit: 5,
@@ -144,7 +185,7 @@ export async function retrieveForComment(
     knowledgeOpts.brainliftType = "institutional";
   }
 
-  const [knowledge, allExamples] = await Promise.all([
+  const [initialKnowledge, allPositiveExamples, allNegativeExamples] = await Promise.all([
     searchKnowledge(commentText, knowledgeOpts),
     searchExamples(commentText, {
       ...opts,
@@ -153,13 +194,57 @@ export async function retrieveForComment(
       limit: 3,
       minSimilarity: 0.3,
     }),
+    searchExamples(commentText, {
+      ...opts,
+      classificationGroup,
+      negativeOnly: true,
+      limit: 5,
+      minSimilarity: 0.3,
+    }),
   ]);
 
-  // Only include examples with strong similarity — weak examples add noise
-  const examples = allExamples.filter((e) => e.similarity > 0.65);
+  let knowledge = initialKnowledge;
+  if (
+    classificationGroup === "narrative_shaping" &&
+    narrativeTopic &&
+    (knowledge.length === 0 ||
+      knowledge[0].similarity <= RELEVANT_KNOWLEDGE_THRESHOLD)
+  ) {
+    const fallbackKnowledge = await searchKnowledge(commentText, {
+      ...opts,
+      brainliftType: "counter_arguments",
+      limit: 5,
+      minSimilarity: 0.45,
+    });
+
+    if (
+      fallbackKnowledge.length > 0 &&
+      (knowledge.length === 0 ||
+        fallbackKnowledge[0].similarity > knowledge[0].similarity)
+    ) {
+      knowledge = fallbackKnowledge;
+    }
+  }
+
+  // Only include examples with strong similarity. Weak examples add noise.
+  const positiveExamples = allPositiveExamples.filter(
+    (e) => e.similarity > POSITIVE_EXAMPLE_THRESHOLD
+  );
+  const negativeExamples = allNegativeExamples.filter(
+    (e) => e.similarity > NEGATIVE_EXAMPLE_THRESHOLD
+  );
 
   const hasRelevantKnowledge =
-    knowledge.length > 0 && knowledge[0].similarity > 0.5;
+    knowledge.length > 0 &&
+    knowledge[0].similarity > RELEVANT_KNOWLEDGE_THRESHOLD;
+  const learnedSkipMatch = findLearnedSkipMatch(negativeExamples);
 
-  return { knowledge, examples, hasRelevantKnowledge };
+  return {
+    knowledge,
+    examples: positiveExamples,
+    positiveExamples,
+    negativeExamples,
+    learnedSkipMatch,
+    hasRelevantKnowledge,
+  };
 }

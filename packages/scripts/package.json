@@ -9,6 +9,9 @@
   },
   "scripts": {
     "shell": "sst shell tsx",
+    "audit-comment-coverage": "tsx src/audit-comment-coverage.ts",
+    "clear-slack-review-slate": "sst shell -- tsx src/clear-slack-review-slate.ts",
+    "prune-slack-bot-messages": "sst shell -- tsx src/prune-slack-bot-messages.ts",
     "scrape": "node --env-file=../../.env --import tsx src/scrape-instagram.ts",
     "process": "node --env-file=../../.env --import tsx src/process-scrape-data.ts",
     "scrape:all": "node --env-file=../../.env --import tsx src/scrape-instagram.ts && node --env-file=../../.env --import tsx src/process-scrape-data.ts"

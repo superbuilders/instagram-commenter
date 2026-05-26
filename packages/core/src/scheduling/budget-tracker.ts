@@ -93,6 +93,30 @@ export async function incrementAllocated(
     );
 }
 
+export async function incrementCommentsSeen(
+  accountId: string,
+  commentCount: number,
+  db: Database
+): Promise<void> {
+  if (commentCount <= 0) return;
+
+  const today = getLocalDateString();
+  await getOrCreateDailyBudget(accountId, db, commentCount);
+
+  await db
+    .update(dailyBudgets)
+    .set({
+      totalCommentsSeen: sql`${dailyBudgets.totalCommentsSeen} + ${commentCount}`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(dailyBudgets.accountId, accountId),
+        eq(dailyBudgets.budgetDate, today)
+      )
+    );
+}
+
 export async function incrementPosted(
   accountId: string,
   db: Database

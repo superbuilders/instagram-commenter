@@ -10,9 +10,11 @@ export {
   searchKnowledge,
   searchExamples,
   retrieveForComment,
+  findLearnedSkipMatch,
   type SearchOptions,
   type SearchResult,
   type ExampleResult,
+  type RetrievalResult,
 } from "./search.js";
 export {
   createWorkflowyClient,

@@ -70,6 +70,8 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
         narrativeTopic: comments.narrativeTopic,
         infoType: comments.infoType,
         postId: comments.postId,
+        postCaption: posts.caption,
+        postPermalink: posts.permalink,
         authorUsername: comments.authorUsername,
       })
       .from(comments)
@@ -96,6 +98,11 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
         id: c.id,
         classificationGroup: c.classificationGroup as (typeof ACTIONABLE_GROUPS)[number],
         likesCount: c.likesCount,
+        text: c.text,
+        postCaption: c.postCaption,
+        classificationConfidence: c.classificationConfidence,
+        narrativeTopic: c.narrativeTopic,
+        infoType: c.infoType,
       })),
       remaining
     );
@@ -117,6 +124,8 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
         payload: {
           classificationGroup: selected.classificationGroup,
           likesCount: selected.likesCount,
+          allocationScore: candidate.allocationScore,
+          allocationReasons: candidate.allocationReasons,
           remainingBudget: remaining,
         },
       });
@@ -125,10 +134,7 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
     for (const alloc of allocated) {
       const comment = candidates.find((c) => c.id === alloc.id)!;
       try {
-        const [post] = await db
-          .select({ caption: posts.caption, permalink: posts.permalink })
-          .from(posts)
-          .where(eq(posts.id, comment.postId));
+        const postCaption = comment.postCaption ?? "";
 
         const retrievalStartedAt = Date.now();
         await recordPipelineEvent(db, {
@@ -144,28 +150,64 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
           { db, openaiApiKey: openaiKey }
         );
 
+        const requiresKnowledge =
+          comment.classificationGroup === "narrative_shaping" ||
+          comment.classificationGroup === "informational";
+        const learnedSkipMatch = retrieval.learnedSkipMatch;
+        const retrievalSkipped =
+          learnedSkipMatch != null ||
+          (requiresKnowledge && !retrieval.hasRelevantKnowledge);
+        const retrievalReasonCode = learnedSkipMatch
+          ? "learned_negative_feedback_match"
+          : retrieval.hasRelevantKnowledge
+            ? "knowledge_found"
+            : requiresKnowledge
+              ? "no_relevant_knowledge"
+              : "knowledge_not_required";
+
         await recordPipelineEvent(db, {
           commentId: comment.id,
           stage: "retrieve",
-          status: retrieval.hasRelevantKnowledge ? "succeeded" : "skipped",
-          reasonCode: retrieval.hasRelevantKnowledge ? "knowledge_found" : "no_relevant_knowledge",
+          status: retrievalSkipped ? "skipped" : "succeeded",
+          reasonCode: retrievalReasonCode,
           payload: {
             classificationGroup: comment.classificationGroup,
             narrativeTopic: comment.narrativeTopic ?? null,
             infoType: comment.infoType ?? null,
             knowledgeCount: retrieval.knowledge.length,
-            exampleCount: retrieval.examples.length,
+            positiveExampleCount: retrieval.positiveExamples.length,
+            negativeExampleCount: retrieval.negativeExamples.length,
             topKnowledgeSimilarity: retrieval.knowledge[0]?.similarity ?? null,
-            topExampleSimilarity: retrieval.examples[0]?.similarity ?? null,
+            topPositiveExampleSimilarity: retrieval.positiveExamples[0]?.similarity ?? null,
+            topNegativeExampleSimilarity: retrieval.negativeExamples[0]?.similarity ?? null,
+            learnedSkipMatch: learnedSkipMatch
+              ? {
+                  id: learnedSkipMatch.id,
+                  similarity: learnedSkipMatch.similarity,
+                  reviewReason: learnedSkipMatch.reviewReason,
+                  reviewNotes: learnedSkipMatch.reviewNotes,
+                }
+              : null,
           },
           latencyMs: Date.now() - retrievalStartedAt,
         });
 
-        if (
-          (comment.classificationGroup === "narrative_shaping" ||
-            comment.classificationGroup === "informational") &&
-          !retrieval.hasRelevantKnowledge
-        ) {
+        if (learnedSkipMatch) {
+          await db
+            .update(comments)
+            .set({ skipReason: "learned_should_not_reply" })
+            .where(eq(comments.id, comment.id));
+
+          log("info", "Skipping due to similar rejected feedback", {
+            commentId: comment.id,
+            negativeExampleId: learnedSkipMatch.id,
+            similarity: learnedSkipMatch.similarity,
+            reviewReason: learnedSkipMatch.reviewReason,
+          });
+          continue;
+        }
+
+        if (requiresKnowledge && !retrieval.hasRelevantKnowledge) {
           await db
             .update(comments)
             .set({ skipReason: "no_relevant_knowledge" })
@@ -189,12 +231,13 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
         const result = await generateReply(
           {
             commentText: comment.text,
-            postCaption: post?.caption ?? "",
+            postCaption,
             classificationGroup: comment.classificationGroup as (typeof ACTIONABLE_GROUPS)[number],
             narrativeTopic: comment.narrativeTopic ?? undefined,
             infoType: comment.infoType ?? undefined,
             knowledge: retrieval.knowledge,
-            examples: retrieval.examples,
+            examples: retrieval.positiveExamples,
+            negativeExamples: retrieval.negativeExamples,
           },
           anthropicKey
         );
@@ -300,8 +343,8 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
             text: comment.text,
             authorUsername: comment.authorUsername ?? "unknown",
             likesCount: comment.likesCount,
-            postCaption: post?.caption ?? "",
-            postPermalink: post?.permalink ?? undefined,
+            postCaption,
+            postPermalink: comment.postPermalink ?? undefined,
           },
           {
             id: newReply.id,
@@ -309,8 +352,18 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
             classificationGroup: comment.classificationGroup!,
             confidence: comment.classificationConfidence ?? 0,
             narrativeTopic: comment.narrativeTopic ?? undefined,
+            infoType: comment.infoType ?? undefined,
+            allocationScore: alloc.allocationScore,
+            allocationReasons: alloc.allocationReasons,
+            knowledgeCount: retrieval.knowledge.length,
+            topKnowledgeSimilarity: retrieval.knowledge[0]?.similarity ?? null,
+            positiveExampleCount: retrieval.positiveExamples.length,
+            topPositiveExampleSimilarity: retrieval.positiveExamples[0]?.similarity ?? null,
+            negativeExampleCount: retrieval.negativeExamples.length,
+            topNegativeExampleSimilarity: retrieval.negativeExamples[0]?.similarity ?? null,
+            negativeWarningReason: retrieval.negativeExamples[0]?.reviewReason ?? null,
           },
-          post?.caption ?? ""
+          postCaption
         );
 
         const ts = await postMessage(

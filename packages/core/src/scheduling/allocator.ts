@@ -5,21 +5,163 @@ export interface AllocatableComment {
     | "community_building"
     | "informational";
   likesCount: number;
+  text?: string;
+  postCaption?: string | null;
+  classificationConfidence?: number | null;
+  narrativeTopic?: string | null;
+  infoType?: string | null;
+}
+
+export interface AllocatedComment extends AllocatableComment {
+  allocationScore: number;
+  allocationReasons: string[];
 }
 
 const PRIORITY_ORDER: AllocatableComment["classificationGroup"][] = [
   "narrative_shaping",
-  "community_building",
   "informational",
+  "community_building",
 ];
+
+const GROUP_BASE_SCORE: Record<AllocatableComment["classificationGroup"], number> = {
+  narrative_shaping: 300,
+  informational: 225,
+  community_building: 75,
+};
+
+const LOW_VALUE_PHRASES = new Set([
+  "agreed",
+  "amen",
+  "awesome",
+  "beautiful",
+  "cool",
+  "exactly",
+  "great",
+  "love",
+  "love it",
+  "love this",
+  "nice",
+  "so true",
+  "thank you",
+  "thanks",
+  "this",
+  "wow",
+  "yes",
+  "yep",
+]);
+
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s'?]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasQuestionIntent(text: string): boolean {
+  const normalized = normalizeText(text);
+  return (
+    text.includes("?") ||
+    /\b(how|what|where|when|why|can|could|do|does|is|are|will|would|should)\b/.test(
+      normalized
+    )
+  );
+}
+
+function isEmojiOrPunctuationOnly(text: string): boolean {
+  return normalizeText(text).length === 0;
+}
+
+function isTeacherGiveawayCaption(caption: string | null | undefined): boolean {
+  if (!caption) return false;
+  const normalized = normalizeText(caption);
+  return (
+    normalized.includes("giveaway") &&
+    (normalized.includes("teacher") || normalized.includes("teach"))
+  );
+}
+
+function looksLikeTeacherGiveawayEntry(text: string): boolean {
+  const normalized = normalizeText(text);
+  if (!normalized || hasQuestionIntent(text)) return false;
+
+  const words = normalized.split(" ");
+  if (words.length > 8) return false;
+
+  return (
+    /\b(k|pre k|prek|kindergarten|grade|grades|teacher|math|science|reading|ela|english|history|social studies|art|music|pe|stem|steam|spanish|sped|special ed|elementary|middle school|high school|librarian|counselor)\b/.test(
+      normalized
+    ) ||
+    /^\d+(st|nd|rd|th)?$/.test(normalized)
+  );
+}
+
+export function isLowValueCommunityComment(
+  comment: Pick<AllocatableComment, "classificationGroup" | "text" | "postCaption">
+): boolean {
+  if (comment.classificationGroup !== "community_building") return false;
+  const text = comment.text?.trim() ?? "";
+  if (!text) return true;
+
+  if (isEmojiOrPunctuationOnly(text)) return true;
+  if (hasQuestionIntent(text)) return false;
+
+  const normalized = normalizeText(text);
+  const words = normalized ? normalized.split(" ") : [];
+
+  if (LOW_VALUE_PHRASES.has(normalized)) return true;
+  if (words.length <= 2 && normalized.length <= 18) return true;
+
+  if (
+    isTeacherGiveawayCaption(comment.postCaption) &&
+    looksLikeTeacherGiveawayEntry(text)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function scoreReplyCandidate(comment: AllocatableComment): AllocatedComment {
+  const allocationReasons: string[] = [comment.classificationGroup];
+  let allocationScore = GROUP_BASE_SCORE[comment.classificationGroup];
+
+  if (comment.likesCount > 0) {
+    allocationScore += Math.min(100, comment.likesCount * 5);
+    allocationReasons.push(`${comment.likesCount}_likes`);
+  }
+
+  if (comment.classificationConfidence != null) {
+    allocationScore += Math.round(comment.classificationConfidence * 20);
+  }
+
+  if (comment.narrativeTopic) {
+    allocationScore += 20;
+    allocationReasons.push(`topic_${comment.narrativeTopic}`);
+  }
+
+  if (comment.infoType) {
+    allocationScore += 10;
+    allocationReasons.push(`info_${comment.infoType}`);
+  }
+
+  return { ...comment, allocationScore, allocationReasons };
+}
 
 export function allocateReplies(
   comments: AllocatableComment[],
   remainingBudget: number
-): AllocatableComment[] {
+): AllocatedComment[] {
   if (remainingBudget <= 0) return [];
 
-  const sorted = [...comments].sort((a, b) => {
+  const scored = comments
+    .filter((comment) => !isLowValueCommunityComment(comment))
+    .map(scoreReplyCandidate);
+
+  const sorted = scored.sort((a, b) => {
+    if (b.allocationScore !== a.allocationScore) {
+      return b.allocationScore - a.allocationScore;
+    }
     const aPriority = PRIORITY_ORDER.indexOf(a.classificationGroup);
     const bPriority = PRIORITY_ORDER.indexOf(b.classificationGroup);
     if (aPriority !== bPriority) return aPriority - bPriority;

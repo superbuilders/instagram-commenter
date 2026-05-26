@@ -11,6 +11,7 @@ export {
 } from "./classifier.js";
 export {
   generateReply,
+  buildUserMessage,
   type GeneratorInput,
   type GeneratorOutput,
   type GeneratorResult,
