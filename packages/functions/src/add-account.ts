@@ -38,6 +38,41 @@ async function slackApi<T>(
   return response.json() as Promise<T>;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function deleteSlackMessage(
+  token: string,
+  channelId: string,
+  messageTs: string
+): Promise<{ ok: boolean; error?: string }> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(`${SLACK_API_BASE}/chat.delete`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({ channel: channelId, ts: messageTs }),
+    });
+
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get("retry-after") ?? "2");
+      await sleep(Math.max(1, retryAfter) * 1000);
+      continue;
+    }
+
+    if (!response.ok) {
+      return { ok: false, error: `http_${response.status}` };
+    }
+
+    return response.json() as Promise<{ ok: boolean; error?: string }>;
+  }
+
+  return { ok: false, error: "rate_limited" };
+}
+
 export async function handler(event: { body?: string } = {}) {
   const host = process.env.DATABASE_HOST;
   const port = process.env.DATABASE_PORT ?? "5432";
@@ -59,6 +94,7 @@ export async function handler(event: { body?: string } = {}) {
 
       const apply = body.apply === true;
       const deleteSlackMessages = body.deleteSlackMessages === true;
+      const includeRetired = body.includeRetired === true;
       const limit = Number.isFinite(Number(body.limit))
         ? Math.min(Math.max(Number(body.limit), 1), 500)
         : 100;
@@ -86,11 +122,17 @@ export async function handler(event: { body?: string } = {}) {
         `
         SELECT COUNT(*) AS count
         FROM replies
-        WHERE approval_status = 'pending'
+        WHERE (
+            approval_status = 'pending'
+            OR (
+              $2::boolean = true
+              AND review_outcome_notes = 'stale_review_reset: retired by retire_slack_reviews maintenance action.'
+            )
+          )
           AND slack_message_ts IS NOT NULL
           AND created_at < $1
         `,
-        [cutoff]
+        [cutoff, includeRetired]
       );
 
       const matches = await pool.query<{
@@ -113,13 +155,19 @@ export async function handler(event: { body?: string } = {}) {
           c.classification_group
         FROM replies r
         INNER JOIN comments c ON c.id = r.comment_id
-        WHERE r.approval_status = 'pending'
+        WHERE (
+            r.approval_status = 'pending'
+            OR (
+              $3::boolean = true
+              AND r.review_outcome_notes = 'stale_review_reset: retired by retire_slack_reviews maintenance action.'
+            )
+          )
           AND r.slack_message_ts IS NOT NULL
           AND r.created_at < $1
         ORDER BY r.created_at ASC
         LIMIT $2
         `,
-        [cutoff, limit]
+        [cutoff, limit, includeRetired]
       );
 
       const deletedSlackMessages: Array<{ replyId: string; ts: string }> = [];
@@ -143,12 +191,12 @@ export async function handler(event: { body?: string } = {}) {
           const slackToken = (Resource as any).SlackBotToken.value;
           const channelId = (Resource as any).SlackChannelId.value;
           for (const row of matches.rows) {
-            const result = await slackApi<{ ok: boolean; error?: string }>(
+            const result = await deleteSlackMessage(
               slackToken,
-              "chat.delete",
-              { channel: channelId, ts: row.slack_message_ts }
+              channelId,
+              row.slack_message_ts
             );
-            if (result.ok) {
+            if (result.ok || result.error === "message_not_found") {
               deletedSlackMessages.push({
                 replyId: row.reply_id,
                 ts: row.slack_message_ts,
