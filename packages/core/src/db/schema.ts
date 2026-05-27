@@ -208,6 +208,89 @@ export const brainliftSources = pgTable("brainlift_sources", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const bioLinkInventories = pgTable("bio_link_inventories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => accounts.id),
+  profileUsername: varchar("profile_username", { length: 255 }).notNull(),
+  sourceUrl: text("source_url").notNull(),
+  refreshedAt: timestamp("refreshed_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("bio_link_inventories_account_idx").on(table.accountId),
+]);
+
+export const bioDestinations = pgTable("bio_destinations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => accounts.id),
+  title: varchar("title", { length: 500 }).notNull(),
+  url: text("url").notNull(),
+  status: varchar("status", { length: 50 }).notNull().default("active"),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("bio_destinations_account_url_idx").on(table.accountId, table.url),
+  index("bio_destinations_account_status_idx").on(table.accountId, table.status),
+]);
+
+export const bioDestinationSnapshots = pgTable("bio_destination_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  destinationId: uuid("destination_id")
+    .notNull()
+    .references(() => bioDestinations.id),
+  title: varchar("title", { length: 500 }).notNull(),
+  url: text("url").notNull(),
+  visibleText: text("visible_text").notNull(),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  fetchStatus: varchar("fetch_status", { length: 50 }).notNull(),
+  errorMessage: text("error_message"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("bio_destination_snapshots_destination_idx").on(
+    table.destinationId,
+    table.fetchedAt
+  ),
+]);
+
+export const postContextJobs = pgTable("post_context_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => posts.id),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  apifyRunId: varchar("apify_run_id", { length: 255 }),
+  apifyDatasetId: varchar("apify_dataset_id", { length: 255 }),
+  failureReason: text("failure_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("post_context_jobs_post_idx").on(table.postId),
+  index("post_context_jobs_status_idx").on(table.status),
+]);
+
+export const postContexts = pgTable("post_contexts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => posts.id),
+  transcript: text("transcript"),
+  durationSeconds: integer("duration_seconds"),
+  thumbnailUrl: text("thumbnail_url"),
+  sourceUrl: text("source_url"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("post_contexts_post_idx").on(table.postId),
+]);
+
 export const responseExamples = pgTable("response_examples", {
   id: uuid("id").primaryKey().defaultRandom(),
   commentText: text("comment_text").notNull(),

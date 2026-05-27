@@ -29,4 +29,32 @@ describe("buildUserMessage", () => {
     expect(message).toContain("should not reply");
     expect(message).toContain("Generic emoji response");
   });
+
+  test("includes Bio Destination evidence as retrieved knowledge", () => {
+    const message = buildUserMessage({
+      commentText: "How do I become a teacher at Alpha?",
+      postCaption: "Our guides are incredible.",
+      classificationGroup: "informational",
+      infoType: "program",
+      knowledge: [
+        {
+          id: "bio-1",
+          title: "Become a Guide",
+          content: "Apply to become an Alpha Guide. Guides support motivation and life skills.",
+          sourceType: "bio_destination",
+          brainliftType: "institutional",
+          sourceWeight: 1.2,
+          narrativeTopics: [],
+          sourceUrl: "https://alpha.school/guides",
+          similarity: 0.67,
+        },
+      ],
+      examples: [],
+    });
+
+    expect(message).toContain("RETRIEVED KNOWLEDGE");
+    expect(message).toContain("🔒 VERIFIED [institutional]");
+    expect(message).toContain("Become a Guide");
+    expect(message).toContain("Apply to become an Alpha Guide");
+  });
 });

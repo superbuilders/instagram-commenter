@@ -29,6 +29,20 @@
       "when": 1775338200000,
       "tag": "0003_pipeline_observability",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779852167386,
+      "tag": "0004_bio_link_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779852167387,
+      "tag": "0005_post_context_jobs",
+      "breakpoints": true
     }
   ]
 }

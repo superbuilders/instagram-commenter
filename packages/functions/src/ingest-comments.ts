@@ -9,8 +9,14 @@ import {
   getRecentMediaWithStats,
   getCommentsWithStats,
 } from "@instagram-commenter/core/instagram";
+import {
+  createApifyPostContextClient,
+  createDbPostContextStore,
+  runPostContextJobForPost,
+} from "@instagram-commenter/core/post-context";
 import { incrementCommentsSeen } from "@instagram-commenter/core/scheduling";
 import { createCronHandler, log } from "./lib/handler.js";
+import { getOptionalApifyToken } from "./lib/secrets.js";
 
 const MEDIA_PAGE_LIMIT = getPageLimit("INGEST_MEDIA_PAGE_LIMIT", 1);
 const COMMENT_PAGE_LIMIT = getPageLimit("INGEST_COMMENT_PAGE_LIMIT", 10);
@@ -27,6 +33,15 @@ function getPageLimit(envName: string, fallback: number): number {
 }
 
 export const handler = createCronHandler("ingest-comments", async (db) => {
+  const postContextStore = createDbPostContextStore(db);
+  const apifyToken = getOptionalApifyToken();
+  const postContextClient = apifyToken
+    ? createApifyPostContextClient({
+        token: apifyToken,
+        actorId: process.env.APIFY_POST_CONTEXT_ACTOR_ID,
+      })
+    : null;
+
   const activeAccounts = await db.select().from(accounts);
 
   for (const account of activeAccounts) {
@@ -74,6 +89,36 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
           })
           .returning({ id: posts.id });
         postId = inserted.id;
+      }
+
+      if (post.media_type === "VIDEO" && postContextClient) {
+        const contextResult = await runPostContextJobForPost(
+          {
+            postId,
+            mediaType: post.media_type,
+            permalink: post.permalink ?? null,
+            caption: post.caption ?? null,
+          },
+          {
+            store: postContextStore,
+            client: postContextClient,
+          }
+        );
+
+        log(
+          contextResult.status === "failed" ? "warn" : "info",
+          "Post Context Job processed",
+          {
+            postId,
+            status: contextResult.status,
+            reason: contextResult.reason,
+            failureReason: contextResult.job?.failureReason,
+          }
+        );
+      } else if (post.media_type === "VIDEO") {
+        log("info", "Skipping Post Context Job because Apify token is not configured", {
+          postId,
+        });
       }
 
       // Fetch comments

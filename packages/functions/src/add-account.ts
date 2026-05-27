@@ -5,6 +5,11 @@ import pg from "pg";
 import * as schema from "@instagram-commenter/core/db";
 import { postMessage } from "@instagram-commenter/core/slack";
 import { getLocalDateString } from "@instagram-commenter/core/time";
+import {
+  createDbBioLinkStore,
+  fetchBioPage,
+  refreshBioLinkInventory,
+} from "@instagram-commenter/core/bio";
 
 const SLACK_API_BASE = "https://slack.com/api";
 
@@ -85,6 +90,69 @@ export async function handler(event: { body?: string } = {}) {
 
   try {
     const body = event.body ? JSON.parse(event.body) : {};
+
+    if (body.action === "refresh_bio_inventory") {
+      if (body.exportKey !== password) {
+        await pool.end();
+        return { statusCode: 403, body: JSON.stringify({ success: false, error: "Forbidden" }) };
+      }
+
+      const bioUrl =
+        typeof body.bioUrl === "string" && body.bioUrl.trim()
+          ? body.bioUrl.trim()
+          : null;
+      if (!bioUrl) {
+        await pool.end();
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ success: false, error: "bioUrl is required" }),
+        };
+      }
+
+      const accountRows = await db
+        .select()
+        .from(schema.accounts)
+        .where(
+          body.accountId
+            ? eq(schema.accounts.id, body.accountId)
+            : body.profileUsername
+              ? eq(schema.accounts.username, body.profileUsername)
+              : eq(schema.accounts.username, "futureof_education")
+        )
+        .limit(1);
+
+      const account = accountRows[0];
+      if (!account) {
+        await pool.end();
+        return {
+          statusCode: 404,
+          body: JSON.stringify({ success: false, error: "account not found" }),
+        };
+      }
+
+      const snapshotFreshForDays = Number.isFinite(Number(body.snapshotFreshForDays))
+        ? Math.max(Number(body.snapshotFreshForDays), 0)
+        : 30;
+
+      const report = await refreshBioLinkInventory(
+        {
+          accountId: account.id,
+          profileUsername: account.username,
+          bioUrl,
+        },
+        {
+          store: createDbBioLinkStore(db),
+          fetchPage: fetchBioPage,
+          snapshotFreshForMs: snapshotFreshForDays * 24 * 60 * 60 * 1000,
+        }
+      );
+
+      await pool.end();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, report }),
+      };
+    }
 
     if (body.action === "retire_slack_reviews") {
       if (body.exportKey !== password) {

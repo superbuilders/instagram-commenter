@@ -29,6 +29,62 @@ const CANDIDATE_SCAN_LIMIT = 500;
 const REVIEW_WINDOW_START_LOCAL_HOUR = 7;
 const REVIEW_WINDOW_END_LOCAL_HOUR = 19;
 
+function evidenceSourcesFromRetrieval(
+  knowledge: Array<{
+    sourceType: string;
+    title: string | null;
+    content: string;
+    sourceUrl?: string | null;
+    similarity: number;
+  }>,
+  positiveExamples: Array<{
+    commentText: string;
+    responseText: string;
+    similarity: number;
+  }>,
+  negativeExamples: Array<{
+    commentText: string;
+    responseText: string;
+    reviewReason: string | null;
+    reviewNotes: string | null;
+    similarity: number;
+  }>
+) {
+  const factualSources = knowledge
+    .slice(0, 3)
+    .map((source) => ({
+      sourceType: source.sourceType,
+      title: source.title,
+      url: source.sourceUrl,
+      snippet: source.content,
+      similarity: source.similarity,
+    }));
+
+  const approvedSources = positiveExamples.slice(0, 1).map((example) => ({
+    sourceType: "approved_example",
+    title: "Approved example",
+    snippet: `Comment: ${example.commentText}\nReply: ${example.responseText}`,
+    similarity: example.similarity,
+  }));
+
+  const rejectedSources = negativeExamples.slice(0, 1).map((example) => ({
+    sourceType: "rejected_example",
+    title: example.reviewReason
+      ? `Rejected example: ${example.reviewReason.replace(/_/g, " ")}`
+      : "Rejected example",
+    snippet: [
+      `Comment: ${example.commentText}`,
+      `Rejected draft: ${example.responseText}`,
+      example.reviewNotes ? `Notes: ${example.reviewNotes}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    similarity: example.similarity,
+  }));
+
+  return [...factualSources, ...approvedSources, ...rejectedSources].slice(0, 5);
+}
+
 export const handler = createCronHandler("allocate-replies", async (db) => {
   const localHour = getLocalHour();
   if (
@@ -147,7 +203,7 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
           comment.text,
           comment.classificationGroup!,
           comment.narrativeTopic ?? null,
-          { db, openaiApiKey: openaiKey }
+          { db, openaiApiKey: openaiKey, postId: comment.postId }
         );
 
         const requiresKnowledge =
@@ -362,6 +418,11 @@ export const handler = createCronHandler("allocate-replies", async (db) => {
             negativeExampleCount: retrieval.negativeExamples.length,
             topNegativeExampleSimilarity: retrieval.negativeExamples[0]?.similarity ?? null,
             negativeWarningReason: retrieval.negativeExamples[0]?.reviewReason ?? null,
+            evidenceSources: evidenceSourcesFromRetrieval(
+              retrieval.knowledge,
+              retrieval.positiveExamples,
+              retrieval.negativeExamples
+            ),
           },
           postCaption
         );

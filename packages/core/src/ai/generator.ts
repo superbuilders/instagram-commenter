@@ -5,7 +5,13 @@ import {
 } from "../pipeline/index.js";
 
 function getSourceTier(sourceType: string, brainliftType: string | null): string {
-  if (sourceType === "brainlift" || sourceType === "website" || sourceType === "substack") {
+  if (
+    sourceType === "brainlift" ||
+    sourceType === "website" ||
+    sourceType === "substack" ||
+    sourceType === "bio_destination" ||
+    sourceType === "post_context"
+  ) {
     return "🔒 VERIFIED";
   }
   if (sourceType === "ig_caption" || sourceType === "podcast") {
@@ -43,7 +49,7 @@ PERSONALITY:
 - Warm, genuine, confident but never defensive
 - First person plural when talking about Alpha: "we are", "our students", "our guides"
 - Direct and succinct — average reply is 143 characters
-- Frequently directs people to bio link for more info: "link in my bio"
+- Directs people to the bio link only when a current retrieved Bio Destination supports that exact next step
 - Uses "bring Alpha to [city]" framing for expansion questions
 
 EMOJI PATTERNS:
@@ -56,7 +62,7 @@ EMOJI PATTERNS:
 TONE BY CONTEXT:
 - Community: lighthearted, grateful, encouraging. Short replies (under 100 chars often).
 - Narrative: factual, empathetic, firm. Never defensive or emotional. Cites specific programs/data.
-- Informational: helpful, warm, directs to resources. "Go to the link in my bio" or "DM us!"
+- Informational: helpful, warm, directs to the specific retrieved resource when one exists. Use "link in my bio" only when the retrieved knowledge includes a relevant Bio Destination.
 
 NEVER DO:
 - Use em dashes (—)
@@ -98,7 +104,7 @@ Pull facts from the retrieved Institutional Knowledge.
 Keep MacKenzie's warm voice — don't sound like a FAQ bot.
 For complex inquiries (specific child situations, financial details), respond warmly and direct to DMs: "DM us and we can help with that! 🙏"
 If the knowledge doesn't have the answer, STILL acknowledge what they asked about specifically, then direct to DMs. Never give a generic "DM us" without first showing you understood their question.
-For location requests ("bring Alpha to [city]"), respond warmly about expansion plans and direct to bio link.
+For location requests ("bring Alpha to [city]"), respond warmly and direct to the relevant Bio Destination only if one was retrieved.
 CRITICAL: NEVER state specific facts about Alpha's programs, curriculum, or methods unless those facts appear in the RETRIEVED KNOWLEDGE below. If the knowledge section is empty or doesn't mention the specific topic, do NOT invent details. Either skip or give a warm general response directing to bio/DMs.`,
   };
 
@@ -138,7 +144,11 @@ export function buildUserMessage(input: GeneratorInput): string {
     parts.push("\nRETRIEVED KNOWLEDGE:");
     for (const k of input.knowledge) {
       const tier = getSourceTier(k.sourceType, k.brainliftType);
-      parts.push(`- ${tier} [${k.brainliftType ?? k.sourceType}] ${k.content}`);
+      const title = k.title ? ` ${k.title}` : "";
+      const sourceUrl = k.sourceUrl ? ` (${k.sourceUrl})` : "";
+      parts.push(
+        `- ${tier} [${k.brainliftType ?? k.sourceType}]${title}${sourceUrl}: ${k.content}`
+      );
     }
   }
 
