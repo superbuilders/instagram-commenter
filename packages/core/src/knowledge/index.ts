@@ -1,4 +1,9 @@
 export {
+  buildKnowledgeGapInventory,
+  type KnowledgeGapInput,
+  type KnowledgeGapInventoryEntry,
+} from "./gaps.js";
+export {
   ingestContent,
   ingestBrainlift,
   ingestResponseExample,

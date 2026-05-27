@@ -35,6 +35,13 @@ interface ReplyContext {
   negativeExampleCount?: number;
   topNegativeExampleSimilarity?: number | null;
   negativeWarningReason?: string | null;
+  evidenceSources?: Array<{
+    sourceType: string;
+    title: string | null;
+    url?: string | null;
+    snippet: string;
+    similarity?: number | null;
+  }>;
 }
 
 interface HandledReplyContext {
@@ -97,6 +104,13 @@ function buildWhySurfacedText(reply: ReplyContext): string | null {
   }
 
   return parts.length > 0 ? `Why surfaced: ${parts.join(" | ")}` : null;
+}
+
+function formatEvidenceSource(source: NonNullable<ReplyContext["evidenceSources"]>[number]): string {
+  const label = source.title ?? source.sourceType.replace(/_/g, " ");
+  const score = source.similarity == null ? "" : `, score ${formatSimilarity(source.similarity)}`;
+  const url = source.url ? ` <${source.url}|source>` : "";
+  return `*${label}* (${source.sourceType.replace(/_/g, " ")}${score})${url}\n>${truncate(source.snippet, 220)}`;
 }
 
 export function buildApprovalMessage(
@@ -173,6 +187,20 @@ export function buildApprovalMessage(
                   text: truncate(whySurfacedText, 700),
                 },
               ],
+            },
+          ]
+        : []),
+      ...(reply.evidenceSources && reply.evidenceSources.length > 0
+        ? [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Evidence used:*\n${reply.evidenceSources
+                  .slice(0, 3)
+                  .map(formatEvidenceSource)
+                  .join("\n")}`,
+              },
             },
           ]
         : []),

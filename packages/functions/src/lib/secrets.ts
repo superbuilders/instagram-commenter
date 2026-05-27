@@ -15,3 +15,11 @@ export const getOpenaiKey = () => getSecret("OpenaiApiKey", "OPENAI_API_KEY");
 export const getSlackBotToken = () => getSecret("SlackBotToken", "SLACK_BOT_TOKEN");
 export const getSlackSigningSecret = () => getSecret("SlackSigningSecret", "SLACK_SIGNING_SECRET");
 export const getSlackChannelId = () => getSecret("SlackChannelId", "SLACK_CHANNEL_ID");
+
+export function getOptionalApifyToken(): string | undefined {
+  try {
+    const val = (Resource as any).ApifyToken?.value;
+    if (val) return val;
+  } catch {}
+  return process.env.APIFY_TOKEN;
+}

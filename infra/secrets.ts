@@ -3,3 +3,4 @@ export const openaiKey = new sst.Secret("OpenaiApiKey");
 export const slackBotToken = new sst.Secret("SlackBotToken");
 export const slackSigningSecret = new sst.Secret("SlackSigningSecret");
 export const slackChannelId = new sst.Secret("SlackChannelId");
+export const apifyToken = new sst.Secret("ApifyToken");

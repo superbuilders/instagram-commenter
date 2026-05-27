@@ -1,0 +1,34 @@
+[
+  {
+    "id": "bio-guide-application",
+    "category": "bio_destination",
+    "comment": "How do I become a teacher at Alpha?",
+    "expectedEvidence": "bio_destination",
+    "mustMention": "Become a Guide",
+    "mustAvoid": "generic link in bio"
+  },
+  {
+    "id": "bio-no-matching-destination",
+    "category": "bio_destination",
+    "comment": "Do you have a program for my exact child situation?",
+    "expectedEvidence": "none",
+    "mustMention": "DM",
+    "mustAvoid": "unsupported program detail"
+  },
+  {
+    "id": "post-context-test2pass",
+    "category": "post_context",
+    "comment": "Why do they have to fail 200 times?",
+    "expectedEvidence": "post_context",
+    "mustMention": "current post transcript",
+    "mustAvoid": "older unrelated Test2Pass source"
+  },
+  {
+    "id": "provenance-visible",
+    "category": "provenance",
+    "comment": "What is tuition like?",
+    "expectedEvidence": "bio_destination_or_verified_knowledge",
+    "mustMention": "Evidence used",
+    "mustAvoid": "hidden source"
+  }
+]

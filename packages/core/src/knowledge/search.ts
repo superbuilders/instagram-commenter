@@ -1,7 +1,14 @@
 import { sql, and, eq, gt, desc } from "drizzle-orm";
 import type { Database } from "../db/index.js";
-import { knowledgeSources, responseExamples } from "../db/schema.js";
+import {
+  bioDestinationSnapshots,
+  bioDestinations,
+  knowledgeSources,
+  postContexts,
+  responseExamples,
+} from "../db/schema.js";
 import { embedText } from "../ai/embeddings.js";
+import type { PostContext } from "../post-context/index.js";
 
 export interface SearchOptions {
   db: Database;
@@ -16,6 +23,8 @@ export interface SearchResult {
   brainliftType: string | null;
   sourceWeight: number;
   narrativeTopics: string[] | null;
+  sourceUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
   similarity: number;
 }
 
@@ -40,11 +49,101 @@ export interface RetrievalResult {
   hasRelevantKnowledge: boolean;
 }
 
+export function postContextToSearchResult(context: PostContext): SearchResult | null {
+  const transcript = context.transcript?.trim();
+  if (!transcript) return null;
+
+  return {
+    id: context.id,
+    title: "Current post transcript",
+    content: transcript,
+    sourceType: "post_context",
+    brainliftType: "institutional",
+    sourceWeight: 1.5,
+    narrativeTopics: [],
+    sourceUrl: context.sourceUrl,
+    metadata: {
+      postId: context.postId,
+      durationSeconds: context.durationSeconds,
+      thumbnailUrl: context.thumbnailUrl,
+    },
+    similarity: 1,
+  };
+}
+
+export interface BioDestinationSnapshotCandidate {
+  destinationId: string;
+  title: string;
+  url: string;
+  visibleText: string;
+}
+
 const RELEVANT_KNOWLEDGE_THRESHOLD = 0.5;
+const RELEVANT_BIO_DESTINATION_THRESHOLD = 0.3;
 const POSITIVE_EXAMPLE_THRESHOLD = 0.65;
 const NEGATIVE_EXAMPLE_THRESHOLD = 0.72;
 const LEARNED_SKIP_THRESHOLD = 0.78;
 const HARD_SKIP_REVIEW_REASONS = new Set(["should_not_reply"]);
+
+const BIO_DESTINATION_SYNONYMS: Record<string, string[]> = {
+  teacher: ["guide", "guides"],
+  teachers: ["guide", "guides"],
+  teach: ["guide", "guides"],
+  job: ["career", "careers", "apply", "application"],
+  jobs: ["career", "careers", "apply", "application"],
+  open: ["bring", "city", "start"],
+  start: ["bring", "city", "open"],
+  tuition: ["cost", "price", "pricing"],
+  school: ["alpha"],
+};
+
+function tokens(value: string): Set<string> {
+  const base = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+
+  const expanded = new Set(base);
+  for (const token of base) {
+    for (const synonym of BIO_DESTINATION_SYNONYMS[token] ?? []) {
+      expanded.add(synonym);
+    }
+  }
+
+  return expanded;
+}
+
+export function rankBioDestinationSnapshots(
+  query: string,
+  snapshots: BioDestinationSnapshotCandidate[],
+  limit = 3
+): SearchResult[] {
+  const queryTokens = tokens(query);
+  if (queryTokens.size === 0) return [];
+
+  return snapshots
+    .map((snapshot) => {
+      const contentTokens = tokens(`${snapshot.title} ${snapshot.visibleText}`);
+      const matches = [...queryTokens].filter((token) => contentTokens.has(token));
+      const similarity = matches.length / queryTokens.size;
+      return {
+        id: snapshot.destinationId,
+        title: snapshot.title,
+        content: snapshot.visibleText,
+        sourceType: "bio_destination",
+        brainliftType: "institutional",
+        sourceWeight: 1.2,
+        narrativeTopics: [],
+        sourceUrl: snapshot.url,
+        metadata: { destinationId: snapshot.destinationId },
+        similarity,
+      } satisfies SearchResult;
+    })
+    .filter((result) => result.similarity > 0)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
+}
 
 export async function searchKnowledge(
   query: string,
@@ -85,6 +184,8 @@ export async function searchKnowledge(
       brainliftType: knowledgeSources.brainliftType,
       sourceWeight: knowledgeSources.sourceWeight,
       narrativeTopics: knowledgeSources.narrativeTopics,
+      sourceUrl: knowledgeSources.sourceUrl,
+      metadata: knowledgeSources.metadata,
       similarity: similarityExpr,
     })
     .from(knowledgeSources)
@@ -93,6 +194,83 @@ export async function searchKnowledge(
     .limit(limit);
 
   return results as SearchResult[];
+}
+
+export async function searchBioDestinationSnapshots(
+  query: string,
+  opts: SearchOptions & {
+    accountId?: string;
+    limit?: number;
+  }
+): Promise<SearchResult[]> {
+  const rows = await opts.db
+    .select({
+      destinationId: bioDestinations.id,
+      accountId: bioDestinations.accountId,
+      title: bioDestinationSnapshots.title,
+      url: bioDestinationSnapshots.url,
+      visibleText: bioDestinationSnapshots.visibleText,
+      fetchedAt: bioDestinationSnapshots.fetchedAt,
+    })
+    .from(bioDestinationSnapshots)
+    .innerJoin(
+      bioDestinations,
+      eq(bioDestinationSnapshots.destinationId, bioDestinations.id)
+    )
+    .where(
+      and(
+        eq(bioDestinations.status, "active"),
+        eq(bioDestinationSnapshots.fetchStatus, "succeeded"),
+        opts.accountId ? eq(bioDestinations.accountId, opts.accountId) : sql`true`
+      )
+    )
+    .orderBy(desc(bioDestinationSnapshots.fetchedAt))
+    .limit(100);
+
+  const latestByDestination = new Map<string, BioDestinationSnapshotCandidate>();
+  for (const row of rows) {
+    if (latestByDestination.has(row.destinationId)) continue;
+    latestByDestination.set(row.destinationId, {
+      destinationId: row.destinationId,
+      title: row.title,
+      url: row.url,
+      visibleText: row.visibleText,
+    });
+  }
+
+  return rankBioDestinationSnapshots(
+    query,
+    [...latestByDestination.values()],
+    opts.limit
+  ).filter((result) => result.similarity >= RELEVANT_BIO_DESTINATION_THRESHOLD);
+}
+
+export async function searchPostContext(
+  opts: SearchOptions & { postId?: string | null }
+): Promise<SearchResult[]> {
+  if (!opts.postId) return [];
+
+  const [row] = await opts.db
+    .select()
+    .from(postContexts)
+    .where(eq(postContexts.postId, opts.postId))
+    .limit(1);
+
+  const result = row
+    ? postContextToSearchResult({
+        id: row.id,
+        postId: row.postId,
+        transcript: row.transcript,
+        durationSeconds: row.durationSeconds,
+        thumbnailUrl: row.thumbnailUrl,
+        sourceUrl: row.sourceUrl,
+        metadata: row.metadata as Record<string, unknown> | null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      })
+    : null;
+
+  return result ? [result] : [];
 }
 
 export async function searchExamples(
@@ -170,7 +348,7 @@ export async function retrieveForComment(
   commentText: string,
   classificationGroup: string,
   narrativeTopic: string | null,
-  opts: SearchOptions
+  opts: SearchOptions & { postId?: string | null }
 ): Promise<RetrievalResult> {
   const knowledgeOpts: Parameters<typeof searchKnowledge>[1] = {
     ...opts,
@@ -185,8 +363,21 @@ export async function retrieveForComment(
     knowledgeOpts.brainliftType = "institutional";
   }
 
-  const [initialKnowledge, allPositiveExamples, allNegativeExamples] = await Promise.all([
+  const [
+    initialKnowledge,
+    postContextKnowledge,
+    bioDestinationKnowledge,
+    allPositiveExamples,
+    allNegativeExamples,
+  ] = await Promise.all([
     searchKnowledge(commentText, knowledgeOpts),
+    searchPostContext(opts),
+    classificationGroup === "informational"
+      ? searchBioDestinationSnapshots(commentText, {
+          ...opts,
+          limit: 3,
+        })
+      : Promise.resolve([]),
     searchExamples(commentText, {
       ...opts,
       classificationGroup,
@@ -203,7 +394,11 @@ export async function retrieveForComment(
     }),
   ]);
 
-  let knowledge = initialKnowledge;
+  let knowledge = [
+    ...postContextKnowledge,
+    ...bioDestinationKnowledge,
+    ...initialKnowledge,
+  ];
   if (
     classificationGroup === "narrative_shaping" &&
     narrativeTopic &&

@@ -6,6 +6,7 @@ import {
   slackBotToken,
   slackSigningSecret,
   slackChannelId,
+  apifyToken,
 } from "./secrets";
 
 const dbEnv = {
@@ -42,7 +43,7 @@ function cronFn(
 export const ingestComments = new sst.aws.Cron("IngestComments", {
   enabled: cronsEnabled,
   schedule: "rate(5 minutes)",
-  function: cronFn("packages/functions/src/ingest-comments.handler", "60 seconds"),
+  function: cronFn("packages/functions/src/ingest-comments.handler", "180 seconds", [apifyToken]),
 });
 
 export const classifyComments = new sst.aws.Cron("ClassifyComments", {
