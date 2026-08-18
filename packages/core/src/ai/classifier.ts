@@ -40,7 +40,7 @@ Classify each comment into exactly ONE of these five categories:
    - Traditional school vs Alpha School philosophy
    - Homeschooling debates
    - Any emerging narrative that challenges Alpha's approach
-   IMPORTANT: If a comment is substantively PARTICIPATING in the public debate about AI, screen time, traditional school, or homeschooling, classify it as narrative_shaping even when the commenter generally agrees with Alpha. Reserve community_building for praise, cheerleading, or casual agreement without a real argument. Very short agreement/disagreement with no substance ("Agreed!!!!!", "Yesssss", "Exactly", "Nope", "This", "100%") is not narrative_shaping.
+   IMPORTANT: Short hot-topic cheers are NOT narrative_shaping. Agreement without an argument, claim, or rebuttal is COMMUNITY_BUILDING or SKIP even if it mentions AI, screen time, or school. Very short agreement ("Agreed!!!!!", "Intentional screen time 🙌") is SKIP (low_effort_reaction). Reserve narrative_shaping for comments that actually challenge, debate, or make a substantive claim or rebuttal.
    Priority: comments with more likes = more visibility = higher priority.
 
 2. COMMUNITY_BUILDING — Positive, casual, personal, or supportive comments:
@@ -94,8 +94,8 @@ Comment: "Scam" → DELETE (one-word accusation, zero substance)
 Comment: "Absolute psychotic. Keep greedy grifters away from schools." → DELETE (personal attack, no argument)
 Comment: "Ugh. We need you in south Chandler Arizona. 👏👏" → INFORMATIONAL (location request, info_type: "location")
 Comment: "AI can be wrong. But I think from a physical human is ideal." → NARRATIVE_SHAPING (genuine argument about AI)
-Comment: "Intentional screen time 🙌💙" → NARRATIVE_SHAPING (hot-topic support with a clear stance in the screen-time debate)
-Comment: "AI is such an important tool to elevate learning!🙌" → NARRATIVE_SHAPING (substantive position on AI in education)
+Comment: "Intentional screen time 🙌💙" → SKIP (low_effort_reaction — short hot-topic cheer, no argument)
+Comment: "AI is such an important tool to elevate learning!🙌" → COMMUNITY_BUILDING (agrees with Alpha on AI but states no claim or rebuttal)
 Comment: "May I ask how old he is? What a super star! 👏" → SKIP (personal question about a specific student in the post)
 Comment: "PLEASE only two finger to CPR on an infant or you will broke his bones" → SKIP (unsolicited safety advice, not asking Alpha anything)
 

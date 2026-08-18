@@ -31,24 +31,41 @@ const GROUP_BASE_SCORE: Record<AllocatableComment["classificationGroup"], number
 
 const LOW_VALUE_PHRASES = new Set([
   "agreed",
+  "amazing",
   "amen",
   "awesome",
   "beautiful",
   "cool",
   "exactly",
+  "facts",
   "great",
+  "incredible",
+  "inspiring",
   "love",
   "love it",
+  "love that",
   "love this",
+  "love you",
+  "needed this",
   "nice",
+  "so good",
+  "so inspiring",
   "so true",
   "thank you",
   "thanks",
   "this",
+  "this is amazing",
+  "this is everything",
+  "this is so inspiring",
+  "truth",
   "wow",
   "yes",
+  "yes please",
   "yep",
 ]);
+
+const ARGUMENT_VERB_RE =
+  /\b(because|but|however|think|believe|need|needs|should|cannot|can't|won't|don't|doesn't|isn't|aren't|wrong|harm|hurts|replace|replacing|instead|unless|without)\b|kids need|children need/;
 
 function normalizeText(value: string): string {
   return value
@@ -110,7 +127,7 @@ export function isLowValueCommunityComment(
   const words = normalized ? normalized.split(" ") : [];
 
   if (LOW_VALUE_PHRASES.has(normalized)) return true;
-  if (words.length <= 2 && normalized.length <= 18) return true;
+  if (words.length <= 6) return true;
 
   if (
     isTeacherGiveawayCaption(comment.postCaption) &&
@@ -118,6 +135,26 @@ export function isLowValueCommunityComment(
   ) {
     return true;
   }
+
+  return false;
+}
+
+export function isLowValueNarrativeFluff(
+  comment: Pick<AllocatableComment, "classificationGroup" | "text">
+): boolean {
+  if (comment.classificationGroup !== "narrative_shaping") return false;
+  const text = comment.text?.trim() ?? "";
+  if (!text) return true;
+  if (text.includes("?")) return false;
+
+  const normalized = normalizeText(text);
+  const words = normalized ? normalized.split(" ") : [];
+  const hasArgument = ARGUMENT_VERB_RE.test(normalized);
+
+  if (hasArgument && words.length > 4) return false;
+  if (isEmojiOrPunctuationOnly(text)) return true;
+  if (words.length <= 8 && !hasArgument) return true;
+  if (words.length <= 6) return true;
 
   return false;
 }
@@ -155,7 +192,10 @@ export function allocateReplies(
   if (remainingBudget <= 0) return [];
 
   const scored = comments
-    .filter((comment) => !isLowValueCommunityComment(comment))
+    .filter(
+      (comment) =>
+        !isLowValueCommunityComment(comment) && !isLowValueNarrativeFluff(comment)
+    )
     .map(scoreReplyCandidate);
 
   const sorted = scored.sort((a, b) => {
@@ -168,5 +208,17 @@ export function allocateReplies(
     return b.likesCount - a.likesCount;
   });
 
-  return sorted.slice(0, remainingBudget);
+  const priority = sorted.filter(
+    (comment) => comment.classificationGroup !== "community_building"
+  );
+  const community = sorted.filter(
+    (comment) => comment.classificationGroup === "community_building"
+  );
+
+  const selected = priority.slice(0, remainingBudget);
+  const leftover = remainingBudget - selected.length;
+  const communityCap = Math.max(1, Math.floor(remainingBudget * 0.2));
+  selected.push(...community.slice(0, Math.min(leftover, communityCap)));
+
+  return selected;
 }

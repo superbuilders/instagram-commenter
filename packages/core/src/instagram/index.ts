@@ -15,3 +15,8 @@ export {
   type PagedFetchStats,
   type RateLimitInfo,
 } from "./api.js";
+export {
+  discoverBusinessProfile,
+  type DiscoverBusinessProfileResult,
+  type DiscoveredProfile,
+} from "./business-discovery.js";

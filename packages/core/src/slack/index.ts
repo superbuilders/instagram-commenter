@@ -11,4 +11,6 @@ export {
   buildRejectModal,
   buildDeleteApprovalMessage,
   buildDigestMessage,
+  buildKnowledgeGapMessage,
+  buildRelationshipCard,
 } from "./blocks.js";

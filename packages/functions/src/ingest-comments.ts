@@ -103,8 +103,10 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
         const commentedAt = new Date(comment.timestamp);
         if (commentedAt < account.createdAt) continue;
 
+        const authorUsername = comment.username || comment.from?.username || null;
+
         // Skip account owner's comments or comments with no text
-        if (comment.username === account.username) continue;
+        if (authorUsername === account.username) continue;
         if (!comment.text) continue;
 
         // Dedupe
@@ -118,7 +120,8 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
         const [insertedComment] = await db.insert(comments).values({
           postId,
           platformCommentId: comment.id,
-          authorUsername: comment.username,
+          authorUsername,
+          authorId: comment.from?.id ?? null,
           text: comment.text,
           likesCount: comment.like_count,
           isFromAccountOwner: false,
@@ -143,7 +146,9 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
             const repliedAt = new Date(reply.timestamp);
             if (repliedAt < account.createdAt) continue;
 
-            if (reply.username === account.username) continue;
+            const replyAuthorUsername = reply.username || reply.from?.username || null;
+
+            if (replyAuthorUsername === account.username) continue;
             if (!reply.text) continue;
 
             const existingReply = await db
@@ -157,7 +162,8 @@ export const handler = createCronHandler("ingest-comments", async (db) => {
               postId,
               platformCommentId: reply.id,
               parentCommentId: parentUuid,
-              authorUsername: reply.username,
+              authorUsername: replyAuthorUsername,
+              authorId: reply.from?.id ?? null,
               text: reply.text,
               likesCount: reply.like_count,
               isFromAccountOwner: false,

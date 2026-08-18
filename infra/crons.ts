@@ -6,6 +6,8 @@ import {
   slackBotToken,
   slackSigningSecret,
   slackChannelId,
+  slackKnowledgeGapChannelId,
+  slackRelationshipChannelId,
 } from "./secrets";
 
 const dbEnv = {
@@ -23,6 +25,7 @@ const postRepliesEnabled = process.env.ENABLE_POST_REPLY_CRON === "true";
 const deleteCommentsEnabled = process.env.ENABLE_DELETE_COMMENT_CRON === "true";
 const autoIngestEnabled = process.env.ENABLE_AUTO_INGEST_CRON === "true";
 const weeklyEvalEnabled = process.env.ENABLE_WEEKLY_EVAL_CRON === "true";
+const relationshipEnabled = process.env.ENABLE_RELATIONSHIP_CRON === "true";
 
 function cronFn(
   handler: string,
@@ -81,7 +84,17 @@ export const slackDigest = new sst.aws.Cron("SlackDigest", {
   // EventBridge rules evaluate cron expressions in UTC. Run hourly and let the
   // handler post only at the configured America/Chicago local hour.
   schedule: "cron(0 * * * ? *)",
-  function: cronFn("packages/functions/src/slack-digest.handler", "60 seconds", [slackBotToken, slackChannelId]),
+  function: cronFn("packages/functions/src/slack-digest.handler", "60 seconds", [slackBotToken, slackChannelId, slackKnowledgeGapChannelId]),
+});
+
+export const researchCommenters = new sst.aws.Cron("ResearchCommenters", {
+  enabled: relationshipEnabled,
+  schedule: "rate(1 hour)",
+  function: cronFn(
+    "packages/functions/src/research-commenters.handler",
+    "120 seconds",
+    [slackBotToken, slackRelationshipChannelId]
+  ),
 });
 
 export const refreshToken = new sst.aws.Cron("RefreshToken", {

@@ -10,6 +10,7 @@ export {
 export {
   allocateReplies,
   isLowValueCommunityComment,
+  isLowValueNarrativeFluff,
   scoreReplyCandidate,
   type AllocatableComment,
   type AllocatedComment,

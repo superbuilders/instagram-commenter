@@ -1,6 +1,10 @@
 import { eq, and, gte, lte, sql, count, desc } from "drizzle-orm";
 import { comments, posts, replies, dailyBudgets, evalResults, commentPipelineEvents } from "@instagram-commenter/core/db";
-import { postMessage, buildDigestMessage } from "@instagram-commenter/core/slack";
+import {
+  postMessage,
+  buildDigestMessage,
+  buildKnowledgeGapMessage,
+} from "@instagram-commenter/core/slack";
 import {
   APP_TIME_ZONE,
   addDaysToLocalDateString,
@@ -9,7 +13,11 @@ import {
   getLocalHour,
 } from "@instagram-commenter/core/time";
 import { createCronHandler, log } from "./lib/handler.js";
-import { getSlackBotToken, getSlackChannelId } from "./lib/secrets.js";
+import {
+  getSlackBotToken,
+  getSlackChannelId,
+  getSlackKnowledgeGapChannelId,
+} from "./lib/secrets.js";
 
 const DIGEST_LOCAL_HOUR = 9;
 
@@ -174,6 +182,7 @@ export const handler = createCronHandler("slack-digest", async (db) => {
       narrativeTopic: comments.narrativeTopic,
       infoType: comments.infoType,
       permalink: posts.permalink,
+      skipReason: comments.skipReason,
       eventCreatedAt: commentPipelineEvents.createdAt,
     })
     .from(commentPipelineEvents)
@@ -192,10 +201,12 @@ export const handler = createCronHandler("slack-digest", async (db) => {
 
   const gapExamples = gapExampleRows.map((row) => ({
     topic: row.narrativeTopic ?? row.infoType ?? row.classificationGroup ?? "general",
+    infoType: row.infoType,
     authorUsername: row.authorUsername,
     likesCount: row.likesCount,
     text: row.text,
     permalink: row.permalink,
+    skipReason: row.skipReason,
   }));
 
   // Deletion count
@@ -237,8 +248,6 @@ export const handler = createCronHandler("slack-digest", async (db) => {
     repliesAuto: approvalMap["auto"] ?? 0,
     deletionsExecuted: Number(deleteResult?.count ?? 0),
     budgetUtilization: totalBudget > 0 ? totalPosted / totalBudget : 0,
-    gapTopics,
-    gapExamples,
     topRejectReasons,
     pipelineIssues,
     evalScore,
@@ -246,4 +255,23 @@ export const handler = createCronHandler("slack-digest", async (db) => {
 
   await postMessage(channelId, msg.blocks, msg.text, slackToken);
   log("info", "Digest posted", { date: dateStr });
+
+  if (gapTopics.length > 0 || gapExamples.length > 0) {
+    try {
+      const gapChannelId = getSlackKnowledgeGapChannelId();
+      const gapMsg = buildKnowledgeGapMessage({
+        date: dateStr,
+        timeZone: APP_TIME_ZONE,
+        topics: gapTopics,
+        examples: gapExamples,
+      });
+      await postMessage(gapChannelId, gapMsg.blocks, gapMsg.text, slackToken);
+      log("info", "Knowledge gap message posted", { date: dateStr });
+    } catch (err) {
+      log("error", "Failed to post knowledge gaps to dedicated channel", {
+        date: dateStr,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 });

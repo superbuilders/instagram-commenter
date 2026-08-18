@@ -15,3 +15,7 @@ export const getOpenaiKey = () => getSecret("OpenaiApiKey", "OPENAI_API_KEY");
 export const getSlackBotToken = () => getSecret("SlackBotToken", "SLACK_BOT_TOKEN");
 export const getSlackSigningSecret = () => getSecret("SlackSigningSecret", "SLACK_SIGNING_SECRET");
 export const getSlackChannelId = () => getSecret("SlackChannelId", "SLACK_CHANNEL_ID");
+export const getSlackKnowledgeGapChannelId = () =>
+  getSecret("SlackKnowledgeGapChannelId", "SLACK_KNOWLEDGE_GAP_CHANNEL_ID");
+export const getSlackRelationshipChannelId = () =>
+  getSecret("SlackRelationshipChannelId", "SLACK_RELATIONSHIP_CHANNEL_ID");

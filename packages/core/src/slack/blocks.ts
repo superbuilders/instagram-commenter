@@ -519,14 +519,6 @@ export function buildDigestMessage(stats: {
   repliesAuto: number;
   deletionsExecuted: number;
   budgetUtilization: number;
-  gapTopics: Array<{ topic: string; commentCount: number; eventCount: number }>;
-  gapExamples?: Array<{
-    topic: string;
-    authorUsername: string | null;
-    likesCount: number;
-    text: string;
-    permalink?: string | null;
-  }>;
   topRejectReasons?: Array<{ reason: string; count: number }>;
   pipelineIssues?: Array<{ label: string; commentCount: number; eventCount: number }>;
   evalScore?: { accuracy: number; date: string } | null;
@@ -589,38 +581,6 @@ export function buildDigestMessage(stats: {
     });
   }
 
-  if (stats.gapTopics.length > 0) {
-    blocks.push({ type: "divider" });
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: [
-          "*Knowledge gaps (topics the bot couldn't answer):*",
-          ...stats.gapTopics.map(
-            (t) => `  ${t.topic}: ${t.commentCount} unique comments (${t.eventCount} events)`
-          ),
-        ].join("\n"),
-      },
-    });
-  }
-
-  if ((stats.gapExamples?.length ?? 0) > 0) {
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: [
-          "*Knowledge gap examples to fill:*",
-          ...stats.gapExamples!.map((item) => {
-            const link = item.permalink ? ` <${item.permalink}|post>` : "";
-            return `  ${item.topic} / @${item.authorUsername ?? "unknown"} / ${item.likesCount} likes${link}: ${truncate(item.text, 160)}`;
-          }),
-        ].join("\n"),
-      },
-    });
-  }
-
   if ((stats.pipelineIssues?.length ?? 0) > 0) {
     blocks.push({ type: "divider" });
     blocks.push({
@@ -653,6 +613,215 @@ export function buildDigestMessage(stats: {
 
   return {
     text: `Daily Digest — ${stats.date}${stats.timeZone ? ` (${stats.timeZone})` : ""}`,
+    blocks,
+  };
+}
+
+export function buildKnowledgeGapMessage(input: {
+  date: string;
+  timeZone?: string;
+  topics: Array<{ topic: string; commentCount: number; eventCount: number }>;
+  examples: Array<{
+    topic: string;
+    infoType?: string | null;
+    authorUsername: string | null;
+    likesCount: number;
+    text: string;
+    permalink?: string | null;
+    skipReason?: string | null;
+  }>;
+}) {
+  const header = `Knowledge gaps — ${input.date}${input.timeZone ? ` (${input.timeZone})` : ""}`;
+  const blocks: unknown[] = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: header,
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: "Info only. No Approve/Edit/Reject — do not post a reply from this channel.",
+        },
+      ],
+    },
+  ];
+
+  if (input.topics.length > 0) {
+    blocks.push({ type: "divider" });
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          "*Topics the bot could not answer:*",
+          ...input.topics.map(
+            (topic) =>
+              `  ${topic.topic}: ${topic.commentCount} unique comments (${topic.eventCount} events)`
+          ),
+        ].join("\n"),
+      },
+    });
+  }
+
+  if (input.examples.length > 0) {
+    blocks.push({ type: "divider" });
+    for (const example of input.examples) {
+      const meta = [
+        example.topic,
+        example.infoType ? `infoType ${example.infoType}` : null,
+        `@${example.authorUsername ?? "unknown"}`,
+        `${example.likesCount} likes`,
+        example.skipReason ? `skipReason ${example.skipReason}` : null,
+      ]
+        .filter(Boolean)
+        .join(" / ");
+
+      blocks.push({
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${meta}*\n>${truncate(example.text, 300)}`,
+        },
+      });
+
+      if (example.permalink) {
+        blocks.push({
+          type: "context",
+          elements: [
+            { type: "mrkdwn", text: `<${example.permalink}|View post on Instagram>` },
+          ],
+        });
+      }
+    }
+  }
+
+  return {
+    text: header,
+    blocks,
+  };
+}
+
+export interface RelationshipCardProfile {
+  username: string;
+  name?: string | null;
+  biography?: string | null;
+  website?: string | null;
+  profilePictureUrl?: string | null;
+  followersCount?: number | null;
+  mediaCount?: number | null;
+}
+
+export interface RelationshipCardCommentContext {
+  text: string;
+  authorUsername: string;
+  likesCount?: number;
+  postPermalink?: string | null;
+  postCaption?: string | null;
+}
+
+export function buildRelationshipCard(
+  profile: RelationshipCardProfile,
+  commentContext: RelationshipCardCommentContext
+) {
+  const displayName = profile.name?.trim() || `@${profile.username}`;
+  const stats = [
+    profile.followersCount != null ? `${profile.followersCount} followers` : null,
+    profile.mediaCount != null ? `${profile.mediaCount} posts` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const blocks: unknown[] = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: truncate(displayName, 150),
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          `*@${profile.username}*`,
+          stats || null,
+          profile.website ? `<${profile.website}|Website>` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    },
+  ];
+
+  if (profile.profilePictureUrl) {
+    blocks.push({
+      type: "image",
+      image_url: profile.profilePictureUrl,
+      alt_text: profile.username,
+    });
+  }
+
+  if (profile.biography) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Bio:*\n${truncate(profile.biography, 400)}`,
+      },
+    });
+  }
+
+  blocks.push({ type: "divider" });
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `*Recent comment by @${commentContext.authorUsername}*${
+        commentContext.likesCount != null ? ` (${commentContext.likesCount} likes)` : ""
+      }:\n>${truncate(commentContext.text, 400)}`,
+    },
+  });
+
+  if (commentContext.postCaption) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Post caption:*\n${truncate(commentContext.postCaption, 200)}`,
+      },
+    });
+  }
+
+  if (commentContext.postPermalink) {
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `<${commentContext.postPermalink}|View post on Instagram>`,
+        },
+      ],
+    });
+  }
+
+  blocks.push({
+    type: "context",
+    elements: [
+      {
+        type: "mrkdwn",
+        text: "Info only. No messaging or reply actions.",
+      },
+    ],
+  });
+
+  return {
+    text: `Relationship card for @${profile.username}`,
     blocks,
   };
 }

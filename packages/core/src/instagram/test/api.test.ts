@@ -72,6 +72,7 @@ describe("Instagram pagination", () => {
               username: "parent2",
               timestamp: "2026-05-22T00:02:00Z",
               like_count: 1,
+              from: { id: "ig-user-parent2", username: "parent2" },
             },
           ],
         });
@@ -86,6 +87,7 @@ describe("Instagram pagination", () => {
               username: "other2",
               timestamp: "2026-05-22T00:03:00Z",
               like_count: 0,
+              from: { id: "ig-user-other2", username: "other2" },
             },
           ],
         });
@@ -100,6 +102,7 @@ describe("Instagram pagination", () => {
               username: "parent",
               timestamp: "2026-05-22T00:00:00Z",
               like_count: 3,
+              from: { id: "ig-user-parent", username: "parent" },
               replies: {
                 data: [
                   {
@@ -108,6 +111,7 @@ describe("Instagram pagination", () => {
                     username: "other",
                     timestamp: "2026-05-22T00:01:00Z",
                     like_count: 0,
+                    from: { id: "ig-user-other", username: "other" },
                   },
                 ],
                 paging: { next: "https://graph.facebook.com/comment-1/replies-page-2" },
@@ -126,10 +130,21 @@ describe("Instagram pagination", () => {
       accessToken: "token",
     });
 
+    const firstCommentsUrl = decodeURIComponent(
+      fetchMock.mock.calls
+        .map(([input]) => input.toString())
+        .find((url) => url.includes("/media-1/comments")) ?? ""
+    );
+    expect(firstCommentsUrl).toContain("from{id,username}");
+    expect(firstCommentsUrl).toContain(
+      "replies.limit(50){id,text,username,timestamp,like_count,from{id,username}}"
+    );
+
     expect(result.comments.map((comment) => comment.id)).toEqual([
       "comment-1",
       "comment-2",
     ]);
+    expect(result.comments[0].from?.id).toBe("ig-user-parent");
     expect(result.comments[0].replies?.data.map((reply) => reply.id)).toEqual([
       "reply-1",
       "reply-2",
