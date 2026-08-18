@@ -20,6 +20,7 @@ export interface IGComment {
   username: string;
   timestamp: string;
   like_count: number;
+  from?: { id: string; username?: string };
   replies?: GraphResponse<IGComment>;
 }
 
@@ -240,7 +241,7 @@ export async function getCommentsWithStats(
         `/${mediaId}/comments`,
         {
           fields:
-            "id,text,username,timestamp,like_count,replies.limit(50){id,text,username,timestamp,like_count}",
+            "id,text,username,timestamp,like_count,from{id,username},replies.limit(50){id,text,username,timestamp,like_count,from{id,username}}",
           limit: "50",
         },
         opts.accessToken

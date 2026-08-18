@@ -1,8 +1,8 @@
 import type { Database } from "../db/index.js";
 import { commentPipelineEvents } from "../db/schema.js";
 
-export const CLASSIFIER_POLICY_VERSION = "2026-05-22-v1";
-export const CLASSIFIER_PROMPT_VERSION = "2026-05-22-v1";
+export const CLASSIFIER_POLICY_VERSION = "2026-08-18-v1";
+export const CLASSIFIER_PROMPT_VERSION = "2026-08-18-v1";
 export const CLASSIFIER_MODEL = "claude-sonnet-4-20250514";
 export const GENERATOR_PROMPT_VERSION = "2026-05-22-v1";
 export const GENERATOR_MODEL = "claude-sonnet-4-20250514";

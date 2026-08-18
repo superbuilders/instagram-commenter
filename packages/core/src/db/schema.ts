@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   vector,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // --- Enums ---
 
@@ -71,6 +72,12 @@ export const brainliftTypeEnum = pgEnum("brainlift_type", [
   "institutional",
   "deletion_guidelines",
   "messaging_boundaries",
+]);
+
+export const discoveryStatusEnum = pgEnum("discovery_status", [
+  "found",
+  "not_discoverable",
+  "error",
 ]);
 
 // --- Tables ---
@@ -143,6 +150,37 @@ export const comments = pgTable(
       table.postId,
       table.classificationGroup
     ),
+    index("comments_author_id_idx").on(table.authorId),
+  ]
+);
+
+export const commenterProfiles = pgTable(
+  "commenter_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    authorId: varchar("author_id", { length: 255 }),
+    authorUsername: varchar("author_username", { length: 255 }).notNull(),
+    igBusinessId: varchar("ig_business_id", { length: 255 }),
+    name: varchar("name", { length: 255 }),
+    biography: text("biography"),
+    website: text("website"),
+    profilePictureUrl: text("profile_picture_url"),
+    followersCount: integer("followers_count"),
+    mediaCount: integer("media_count"),
+    discoveryStatus: discoveryStatusEnum("discovery_status").notNull(),
+    researchedAt: timestamp("researched_at", { withTimezone: true }),
+    slackMessageTs: varchar("slack_message_ts", { length: 255 }),
+    source: varchar("source", { length: 100 })
+      .notNull()
+      .default("graph_business_discovery"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("commenter_profiles_author_id_idx")
+      .on(table.authorId)
+      .where(sql`${table.authorId} IS NOT NULL`),
+    uniqueIndex("commenter_profiles_author_username_idx").on(table.authorUsername),
   ]
 );
 
